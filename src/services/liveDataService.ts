@@ -4,6 +4,16 @@
 import { supabase } from "@/integrations/supabase/client";
 import { MatchStats } from "./predictionEngine";
 
+export interface LiveIncident {
+  minute: number;
+  type: 'goal' | 'card' | 'substitution' | 'var' | 'penalty' | 'other';
+  cardType?: 'yellow' | 'red';
+  playerName?: string;
+  isHome?: boolean;
+  teamName?: string;
+  description?: string;
+}
+
 export interface LiveMatch {
   id: string;
   fixtureId: number;
@@ -19,6 +29,7 @@ export interface LiveMatch {
   minute: number;
   status: 'live' | 'finished' | 'halftime' | 'scheduled';
   stats: MatchStats;
+  incidents?: LiveIncident[];
 }
 
 export interface OddsEvent {

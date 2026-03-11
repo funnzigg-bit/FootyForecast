@@ -49,9 +49,9 @@ const formatMatchDate = (dateStr?: string) => {
 };
 
 const getMatchTimestamp = (dateStr?: string) => {
-  if (!dateStr) return 0;
+  if (!dateStr) return Number.POSITIVE_INFINITY;
   const timestamp = new Date(dateStr).getTime();
-  return Number.isNaN(timestamp) ? 0 : timestamp;
+  return Number.isNaN(timestamp) ? Number.POSITIVE_INFINITY : timestamp;
 };
 
 const WinProbBar = ({ home, draw, away, homeTeam, awayTeam }: { home: number; draw: number; away: number; homeTeam: string; awayTeam: string }) => (
@@ -95,7 +95,7 @@ const Predictions = () => {
   filtered.sort((a, b) => {
     const cmp =
       sortKey === 'date'
-        ? getMatchTimestamp(b.matchDate) - getMatchTimestamp(a.matchDate)
+        ? getMatchTimestamp(a.matchDate) - getMatchTimestamp(b.matchDate)
         : sortKey === 'confidence'
         ? b.confidence - a.confidence
         : sortKey === 'priority'

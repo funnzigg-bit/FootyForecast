@@ -3,10 +3,11 @@ import { useParams, Link } from "react-router-dom";
 import DashboardLayout from "@/components/dashboard/DashboardLayout";
 import { useLiveMatches } from "@/hooks/useLiveMatches";
 import { usePredictionsData } from "@/hooks/usePredictionsData";
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { ArrowLeft, Clock, Radio, Calendar } from "lucide-react";
 import TeamBadge from "@/components/TeamBadge";
+import { LiveIncident } from "@/services/liveDataService";
+import { MatchPrediction } from "@/services/footballPredictionEngine";
 
 const StatBar = ({ label, homeValue, awayValue, homeLabel, awayLabel, highlight }: {
   label: string; homeValue: number; awayValue: number;
@@ -55,6 +56,81 @@ const formatMatchDate = (dateStr?: string) => {
   return `${d.toLocaleDateString([], { weekday: 'long', day: 'numeric', month: 'long' })} at ${d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`;
 };
 
+function normalizeLiveWinProbabilities(
+  prediction: MatchPrediction,
+  liveScore: { home: number; away: number; minute: number },
+  stats?: {
+    homeShotsOnTarget: number;
+    awayShotsOnTarget: number;
+    homeDangerousAttacks: number;
+    awayDangerousAttacks: number;
+    homePossession: number;
+    awayPossession: number;
+    homeRedCards: number;
+    awayRedCards: number;
+  } | null,
+) {
+  const minute = Math.max(1, liveScore.minute);
+  const scoreDiff = liveScore.home - liveScore.away;
+  const absDiff = Math.abs(scoreDiff);
+  const remainingRatio = Math.max(0.04, (95 - Math.min(minute, 95)) / 95);
+
+  const homePressure =
+    (stats?.homeShotsOnTarget ?? 0) * 3 +
+    (stats?.homeDangerousAttacks ?? 0) * 0.08 +
+    (stats?.homePossession ?? 50) * 0.12 -
+    (stats?.homeRedCards ?? 0) * 12;
+  const awayPressure =
+    (stats?.awayShotsOnTarget ?? 0) * 3 +
+    (stats?.awayDangerousAttacks ?? 0) * 0.08 +
+    (stats?.awayPossession ?? 50) * 0.12 -
+    (stats?.awayRedCards ?? 0) * 12;
+
+  const pressureSwing = Math.max(-10, Math.min(10, (homePressure - awayPressure) * 0.45 * remainingRatio));
+  const leadWeight = absDiff * (18 + minute * 0.52);
+
+  let home = prediction.homeWinProb;
+  let draw = prediction.drawProb;
+  let away = prediction.awayWinProb;
+
+  if (scoreDiff > 0) {
+    home += leadWeight;
+    draw = Math.max(1, draw - absDiff * (7 + minute * 0.06));
+    away = Math.max(1, away - leadWeight * 0.7);
+  } else if (scoreDiff < 0) {
+    away += leadWeight;
+    draw = Math.max(1, draw - absDiff * (7 + minute * 0.06));
+    home = Math.max(1, home - leadWeight * 0.7);
+  } else {
+    draw += 10 + minute * 0.18;
+  }
+
+  if (scoreDiff >= 2) draw = Math.max(1, draw - 6);
+  if (scoreDiff <= -2) draw = Math.max(1, draw - 6);
+  if (scoreDiff > 0) home += pressureSwing;
+  if (scoreDiff < 0) away -= pressureSwing;
+  if (scoreDiff === 0) {
+    home += pressureSwing;
+    away -= pressureSwing;
+  }
+
+  const raw = [
+    Math.max(1, home),
+    Math.max(1, draw),
+    Math.max(1, away),
+  ];
+  const total = raw.reduce((sum, value) => sum + value, 0);
+  const normalized = raw.map((value) => Math.round((value / total) * 100));
+  const drift = 100 - normalized.reduce((sum, value) => sum + value, 0);
+  normalized[0] += drift;
+
+  return {
+    home: normalized[0],
+    draw: normalized[1],
+    away: normalized[2],
+  };
+}
+
 const MatchDetail = () => {
   const { id } = useParams<{ id: string }>();
   const { data: liveMatches = [] } = useLiveMatches(15000);
@@ -80,7 +156,7 @@ const MatchDetail = () => {
         status: liveMatch.status,
         stats: liveMatch.stats,
         matchDate: undefined as string | undefined,
-        incidents: (liveMatch as any).incidents || [],
+        incidents: liveMatch.incidents || [],
       };
     }
     if (prediction) {
@@ -118,6 +194,22 @@ const MatchDetail = () => {
   }
 
   const s = match.stats;
+  const liveProbabilities = useMemo(() => {
+    if (!prediction) return null;
+    if (match.status !== 'live' && match.status !== 'halftime') {
+      return {
+        home: prediction.homeWinProb,
+        draw: prediction.drawProb,
+        away: prediction.awayWinProb,
+      };
+    }
+
+    return normalizeLiveWinProbabilities(
+      prediction,
+      { home: match.homeScore, away: match.awayScore, minute: match.minute },
+      s
+    );
+  }, [match.awayScore, match.homeScore, match.minute, match.status, prediction, s]);
 
   return (
     <DashboardLayout liveMatchCount={liveCount}>
@@ -165,12 +257,12 @@ const MatchDetail = () => {
           </div>
 
           {/* Win probabilities from prediction */}
-          {prediction && (
+          {prediction && liveProbabilities && (
             <div className="border-t border-border/50 px-4 py-4 bg-secondary/10">
               <WinProbBar
-                home={prediction.homeWinProb}
-                draw={prediction.drawProb}
-                away={prediction.awayWinProb}
+                home={liveProbabilities.home}
+                draw={liveProbabilities.draw}
+                away={liveProbabilities.away}
                 homeTeam={prediction.homeTeam.split(' ').pop() || 'Home'}
                 awayTeam={prediction.awayTeam.split(' ').pop() || 'Away'}
               />
@@ -226,21 +318,21 @@ const MatchDetail = () => {
             </h3>
             <div className="space-y-2">
               {match.incidents && match.incidents.length > 0 ? (
-                match.incidents.map((event: any, i: number) => (
+                match.incidents.map((event: LiveIncident, i: number) => (
                   <div key={i} className="flex items-center gap-2 text-xs">
                     <span className="font-mono text-muted-foreground w-6 text-right">{event.minute}'</span>
                     <div className={`h-2 w-2 rounded-full ${
                       event.type === 'goal' ? 'bg-primary' :
-                      event.type === 'card' && event.card_type === 'red' ? 'bg-destructive' :
+                      event.type === 'card' && event.cardType === 'red' ? 'bg-destructive' :
                       event.type === 'card' ? 'bg-warning' :
                       event.type === 'substitution' ? 'bg-accent' :
                       'bg-muted-foreground'
                     }`} />
                     <span className={`${event.type === 'goal' ? 'text-foreground font-semibold' : 'text-muted-foreground'}`}>
                       {event.type === 'goal' ? '⚽ ' : event.type === 'card' ? '🟨 ' : ''}
-                      {event.player_name || (event.type === 'goal' ? 'Goal' : event.type)}
+                      {event.playerName || event.description || (event.type === 'goal' ? 'Goal' : event.type)}
                       <span className="text-muted-foreground font-normal ml-1">
-                        ({event.is_home ? match.homeTeam : match.awayTeam})
+                        ({event.isHome === undefined ? event.teamName || 'Match' : event.isHome ? match.homeTeam : match.awayTeam})
                       </span>
                     </span>
                   </div>
