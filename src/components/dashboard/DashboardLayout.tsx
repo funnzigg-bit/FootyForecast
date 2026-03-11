@@ -5,7 +5,6 @@ import {
   LayoutDashboard, Radio, BarChart3, TrendingUp,
   Settings, LogOut, ChevronLeft, ChevronRight, Menu, Target, Flame, BookOpen
 } from "lucide-react";
-import Logo from "@/components/Logo";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { Sheet, SheetContent } from "@/components/ui/sheet";
@@ -42,14 +41,15 @@ const SidebarContent = ({
     <div className="flex h-14 items-center justify-between border-b border-border px-3">
       {!collapsed && (
         <Link to="/predictions" className="flex items-center gap-2">
-          <Logo size="sm" />
           <span className="text-sm font-bold text-foreground">
             Footy<span className="text-primary">Forecast</span>
           </span>
         </Link>
       )}
       {collapsed && (
-        <Logo size="sm" className="mx-auto" />
+        <span className="mx-auto text-sm font-bold tracking-tight text-foreground">
+          F<span className="text-primary">F</span>
+        </span>
       )}
     </div>
 

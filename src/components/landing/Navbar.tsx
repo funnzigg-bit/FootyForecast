@@ -2,7 +2,6 @@ import { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Menu, X } from "lucide-react";
-import Logo from "@/components/Logo";
 import { motion, AnimatePresence } from "framer-motion";
 
 const Navbar = () => {
@@ -32,7 +31,6 @@ const Navbar = () => {
     >
       <div className="mx-auto flex h-16 max-w-7xl items-center justify-between px-4 sm:px-6 lg:px-8">
         <a href="/" className="flex items-center gap-2">
-          <Logo size="sm" />
           <span className="text-lg font-bold tracking-tight text-foreground">
             Footy<span className="text-primary">Forecast</span>
           </span>
