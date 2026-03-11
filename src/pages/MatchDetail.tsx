@@ -1,0 +1,261 @@
+import { useMemo } from "react";
+import { useParams, Link } from "react-router-dom";
+import DashboardLayout from "@/components/dashboard/DashboardLayout";
+import { useLiveMatches } from "@/hooks/useLiveMatches";
+import { usePredictionsData } from "@/hooks/usePredictionsData";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { ArrowLeft, Clock, Radio, Calendar } from "lucide-react";
+import TeamBadge from "@/components/TeamBadge";
+
+const StatBar = ({ label, homeValue, awayValue, homeLabel, awayLabel, highlight }: {
+  label: string; homeValue: number; awayValue: number;
+  homeLabel?: string; awayLabel?: string; highlight?: boolean;
+}) => {
+  const total = homeValue + awayValue || 1;
+  const homePercent = (homeValue / total) * 100;
+  return (
+    <div className="space-y-1">
+      <div className="flex items-center justify-between text-xs">
+        <span className={`font-mono ${highlight && homeValue > awayValue ? "text-primary font-bold" : "text-foreground"}`}>
+          {homeLabel ?? homeValue}
+        </span>
+        <span className="text-muted-foreground text-[10px]">{label}</span>
+        <span className={`font-mono ${highlight && awayValue > homeValue ? "text-primary font-bold" : "text-foreground"}`}>
+          {awayLabel ?? awayValue}
+        </span>
+      </div>
+      <div className="flex h-1.5 rounded-full overflow-hidden gap-0.5">
+        <div className={`rounded-full transition-all ${homeValue > awayValue ? "bg-primary" : "bg-accent"}`} style={{ width: `${homePercent}%` }} />
+        <div className={`rounded-full transition-all ${awayValue > homeValue ? "bg-primary" : "bg-accent"}`} style={{ width: `${100 - homePercent}%` }} />
+      </div>
+    </div>
+  );
+};
+
+const WinProbBar = ({ home, draw, away, homeTeam, awayTeam }: { home: number; draw: number; away: number; homeTeam: string; awayTeam: string }) => (
+  <div className="space-y-1.5 mt-3">
+    <div className="flex items-center justify-between text-xs">
+      <span className={`font-bold ${home >= draw && home >= away ? 'text-primary' : 'text-foreground'}`}>{homeTeam} {home}%</span>
+      <span className="text-muted-foreground text-[10px]">Win Probability</span>
+      <span className={`font-bold ${away >= draw && away >= home ? 'text-primary' : 'text-foreground'}`}>{away}% {awayTeam}</span>
+    </div>
+    <div className="flex h-2.5 rounded-full overflow-hidden gap-0.5">
+      <div className={`rounded-l-full ${home >= draw && home >= away ? 'bg-primary' : 'bg-accent'}`} style={{ width: `${home}%` }} />
+      <div className="bg-muted-foreground/30" style={{ width: `${draw}%` }} />
+      <div className={`rounded-r-full ${away >= draw && away >= home ? 'bg-primary' : 'bg-accent'}`} style={{ width: `${away}%` }} />
+    </div>
+    <div className="text-center text-[10px] text-muted-foreground">Draw {draw}%</div>
+  </div>
+);
+
+const formatMatchDate = (dateStr?: string) => {
+  if (!dateStr) return '';
+  const d = new Date(dateStr);
+  return `${d.toLocaleDateString([], { weekday: 'long', day: 'numeric', month: 'long' })} at ${d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`;
+};
+
+const MatchDetail = () => {
+  const { id } = useParams<{ id: string }>();
+  const { data: liveMatches = [] } = useLiveMatches(15000);
+  const { data: predictions = [] } = usePredictionsData();
+
+  // Find match in live matches or predictions
+  const liveMatch = liveMatches.find(m => m.id === id);
+  const prediction = predictions.find(p => p.id === id);
+
+  const match = useMemo(() => {
+    if (liveMatch) {
+      return {
+        id: liveMatch.id,
+        league: liveMatch.league,
+        leagueLogo: liveMatch.leagueLogo,
+        homeTeam: liveMatch.homeTeam,
+        awayTeam: liveMatch.awayTeam,
+        homeLogo: liveMatch.homeLogo,
+        awayLogo: liveMatch.awayLogo,
+        homeScore: liveMatch.homeScore,
+        awayScore: liveMatch.awayScore,
+        minute: liveMatch.minute,
+        status: liveMatch.status,
+        stats: liveMatch.stats,
+        matchDate: undefined as string | undefined,
+        incidents: (liveMatch as any).incidents || [],
+      };
+    }
+    if (prediction) {
+      return {
+        id: prediction.id,
+        league: prediction.league,
+        leagueLogo: prediction.leagueLogo,
+        homeTeam: prediction.homeTeam,
+        awayTeam: prediction.awayTeam,
+        homeLogo: prediction.homeLogo,
+        awayLogo: prediction.awayLogo,
+        homeScore: prediction.homeScore,
+        awayScore: prediction.awayScore,
+        minute: prediction.minute || 0,
+        status: prediction.status || 'scheduled',
+        stats: null,
+        matchDate: prediction.matchDate,
+        incidents: [],
+      };
+    }
+    return null;
+  }, [liveMatch, prediction]);
+
+  const liveCount = liveMatches.filter(m => m.status === 'live').length;
+
+  if (!match) {
+    return (
+      <DashboardLayout liveMatchCount={liveCount}>
+        <div className="flex flex-col items-center justify-center py-20">
+          <p className="text-muted-foreground">Match not found</p>
+          <Link to="/live"><Button variant="outline" size="sm" className="mt-4 gap-2"><ArrowLeft className="h-4 w-4" />Back to Live</Button></Link>
+        </div>
+      </DashboardLayout>
+    );
+  }
+
+  const s = match.stats;
+
+  return (
+    <DashboardLayout liveMatchCount={liveCount}>
+      <div className="space-y-4">
+        <Link to="/live" className="inline-flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground transition-colors">
+          <ArrowLeft className="h-3.5 w-3.5" /> Back to Live Matches
+        </Link>
+
+        {/* Scoreboard */}
+        <div className="rounded-xl border border-border bg-card overflow-hidden">
+          <div className="flex items-center justify-between px-4 py-2 border-b border-border/50 bg-secondary/20">
+            <span className="text-xs text-muted-foreground">{match.league}</span>
+            <div className="flex items-center gap-2">
+              {match.status === 'live' && <div className="h-2 w-2 rounded-full bg-primary animate-pulse-glow" />}
+              <span className="text-xs font-mono text-muted-foreground">
+                {match.status === 'halftime' ? 'HALF TIME' : match.status === 'finished' ? 'FULL TIME' : match.status === 'scheduled' ? 'UPCOMING' : `${match.minute}'`}
+              </span>
+            </div>
+          </div>
+
+          {/* Match date for upcoming matches */}
+          {match.status === 'scheduled' && match.matchDate && (
+            <div className="flex items-center justify-center gap-1.5 px-4 py-2 bg-secondary/10 border-b border-border/30">
+              <Calendar className="h-3 w-3 text-muted-foreground" />
+              <span className="text-xs text-muted-foreground">{formatMatchDate(match.matchDate)}</span>
+            </div>
+          )}
+
+          <div className="flex items-center justify-center gap-4 sm:gap-8 py-6 sm:py-8 px-4">
+            <div className="flex-1 text-right flex flex-col items-end gap-1">
+              {match.homeLogo && <img src={match.homeLogo} alt="" className="h-8 w-8 object-contain" />}
+              <div className="text-sm sm:text-lg font-bold text-foreground">{match.homeTeam}</div>
+              <span className="text-[10px] text-muted-foreground">Home</span>
+            </div>
+            <div className="flex items-center gap-3">
+              <span className="text-3xl sm:text-5xl font-bold font-mono text-foreground">{match.homeScore}</span>
+              <span className="text-xl sm:text-3xl text-muted-foreground">–</span>
+              <span className="text-3xl sm:text-5xl font-bold font-mono text-foreground">{match.awayScore}</span>
+            </div>
+            <div className="flex-1 flex flex-col items-start gap-1">
+              {match.awayLogo && <img src={match.awayLogo} alt="" className="h-8 w-8 object-contain" />}
+              <div className="text-sm sm:text-lg font-bold text-foreground">{match.awayTeam}</div>
+              <span className="text-[10px] text-muted-foreground">Away</span>
+            </div>
+          </div>
+
+          {/* Win probabilities from prediction */}
+          {prediction && (
+            <div className="border-t border-border/50 px-4 py-4 bg-secondary/10">
+              <WinProbBar
+                home={prediction.homeWinProb}
+                draw={prediction.drawProb}
+                away={prediction.awayWinProb}
+                homeTeam={prediction.homeTeam.split(' ').pop() || 'Home'}
+                awayTeam={prediction.awayTeam.split(' ').pop() || 'Away'}
+              />
+
+              <div className="grid grid-cols-4 gap-2 mt-4 pt-3 border-t border-border/30">
+                <div className="text-center">
+                  <div className="text-[10px] text-muted-foreground">Prediction</div>
+                  <div className="text-xs font-bold text-foreground">{prediction.predictedResult}</div>
+                </div>
+                <div className="text-center">
+                  <div className="text-[10px] text-muted-foreground">Score</div>
+                  <div className="text-xs font-mono font-bold text-foreground">{prediction.predictedScore}</div>
+                </div>
+                <div className="text-center">
+                  <div className="text-[10px] text-muted-foreground">BTTS</div>
+                  <div className={`text-xs font-bold ${prediction.bttsResult === 'Yes' ? 'text-primary' : 'text-muted-foreground'}`}>{prediction.bttsResult}</div>
+                </div>
+                <div className="text-center">
+                  <div className="text-[10px] text-muted-foreground">Over 2.5</div>
+                  <div className="text-xs font-mono font-bold text-foreground">{prediction.over25Prob}%</div>
+                </div>
+              </div>
+
+              {prediction.reasoning && (
+                <p className="mt-3 text-xs text-muted-foreground italic">{prediction.reasoning}</p>
+              )}
+            </div>
+          )}
+        </div>
+
+        <div className="grid gap-4 lg:grid-cols-2">
+          {/* Stats */}
+          {s && (
+            <div className="rounded-xl border border-border bg-card p-4">
+              <h3 className="text-sm font-semibold text-foreground mb-4 flex items-center gap-2">
+                <Radio className="h-4 w-4 text-accent" /> Match Stats
+              </h3>
+              <div className="space-y-3">
+                <StatBar label="Possession" homeValue={s.homePossession} awayValue={s.awayPossession} homeLabel={`${s.homePossession}%`} awayLabel={`${s.awayPossession}%`} />
+                <StatBar label="Shots" homeValue={s.homeShots} awayValue={s.awayShots} highlight />
+                <StatBar label="Shots on Target" homeValue={s.homeShotsOnTarget} awayValue={s.awayShotsOnTarget} highlight />
+                <StatBar label="Corners" homeValue={s.homeCorners} awayValue={s.awayCorners} />
+                <StatBar label="Yellow Cards" homeValue={s.homeYellowCards} awayValue={s.awayYellowCards} />
+                <StatBar label="Red Cards" homeValue={s.homeRedCards} awayValue={s.awayRedCards} />
+              </div>
+            </div>
+          )}
+
+          {/* Match Events / Goalscorers */}
+          <div className="rounded-xl border border-border bg-card p-4">
+            <h3 className="text-sm font-semibold text-foreground mb-3 flex items-center gap-2">
+              <Clock className="h-4 w-4 text-muted-foreground" /> Match Events
+            </h3>
+            <div className="space-y-2">
+              {match.incidents && match.incidents.length > 0 ? (
+                match.incidents.map((event: any, i: number) => (
+                  <div key={i} className="flex items-center gap-2 text-xs">
+                    <span className="font-mono text-muted-foreground w-6 text-right">{event.minute}'</span>
+                    <div className={`h-2 w-2 rounded-full ${
+                      event.type === 'goal' ? 'bg-primary' :
+                      event.type === 'card' && event.card_type === 'red' ? 'bg-destructive' :
+                      event.type === 'card' ? 'bg-warning' :
+                      event.type === 'substitution' ? 'bg-accent' :
+                      'bg-muted-foreground'
+                    }`} />
+                    <span className={`${event.type === 'goal' ? 'text-foreground font-semibold' : 'text-muted-foreground'}`}>
+                      {event.type === 'goal' ? '⚽ ' : event.type === 'card' ? '🟨 ' : ''}
+                      {event.player_name || (event.type === 'goal' ? 'Goal' : event.type)}
+                      <span className="text-muted-foreground font-normal ml-1">
+                        ({event.is_home ? match.homeTeam : match.awayTeam})
+                      </span>
+                    </span>
+                  </div>
+                ))
+              ) : match.status === 'scheduled' ? (
+                <p className="text-xs text-muted-foreground">Match hasn't started yet. Events will appear here during the game.</p>
+              ) : (
+                <p className="text-xs text-muted-foreground">No events available</p>
+              )}
+            </div>
+          </div>
+        </div>
+      </div>
+    </DashboardLayout>
+  );
+};
+
+export default MatchDetail;
