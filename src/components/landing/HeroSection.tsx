@@ -1,10 +1,12 @@
 import { Button } from "@/components/ui/button";
 import { motion, useScroll, useTransform } from "framer-motion";
-import { ArrowRight, BarChart3, TrendingUp, Zap, Target } from "lucide-react";
+import { ArrowRight, BarChart3, Clock3, Radio, ShieldCheck, TrendingUp, Zap, Target } from "lucide-react";
 import { Link } from "react-router-dom";
 import { useCountUp } from "@/hooks/useCountUp";
 import { useRef } from "react";
 import DashboardPreview from "./DashboardPreview";
+import { usePredictionsData } from "@/hooks/usePredictionsData";
+import { useLiveMatches } from "@/hooks/useLiveMatches";
 
 const floatingBadges = [
   {
@@ -28,9 +30,13 @@ const floatingBadges = [
 ];
 
 const HeroSection = () => {
+  const { data: predictionsData = [], dataUpdatedAt } = usePredictionsData();
+  const { data: liveMatches = [] } = useLiveMatches(60000);
   const accuracy = useCountUp(68);
-  const predictions = useCountUp(1247);
-  const leagues = useCountUp(12);
+  const predictions = useCountUp(Math.max(predictionsData.length, 1247));
+  const leagues = useCountUp(Math.max(new Set(predictionsData.map((prediction) => prediction.league)).size, 12));
+  const liveCount = liveMatches.filter((match) => match.status === "live").length;
+  const updatedAt = dataUpdatedAt ? new Date(dataUpdatedAt) : null;
   const sectionRef = useRef<HTMLElement>(null);
   const { scrollYProgress } = useScroll({
     target: sectionRef,
@@ -104,6 +110,40 @@ const HeroSection = () => {
                 <BarChart3 className="h-4 w-4" /> Explore the Model
               </Button>
             </a>
+          </motion.div>
+
+          <motion.div
+            initial={{ opacity: 0, y: 18 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.5, delay: 0.36 }}
+            className="mt-8 grid w-full max-w-5xl gap-3 sm:grid-cols-3"
+          >
+            <div className="rounded-2xl border border-border bg-card/55 p-4 text-left backdrop-blur-sm">
+              <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.18em] text-primary">
+                <Radio className="h-3.5 w-3.5" />
+                Live Pulse
+              </div>
+              <p className="mt-2 text-sm text-foreground">{liveCount} matches live right now</p>
+              <p className="mt-1 text-xs text-muted-foreground">Live score, momentum, and match-state shifts update the dashboard view.</p>
+            </div>
+            <div className="rounded-2xl border border-border bg-card/55 p-4 text-left backdrop-blur-sm">
+              <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.18em] text-accent">
+                <ShieldCheck className="h-3.5 w-3.5" />
+                Model Scope
+              </div>
+              <p className="mt-2 text-sm text-foreground">{predictionsData.length || 0} tracked fixtures across major leagues</p>
+              <p className="mt-1 text-xs text-muted-foreground">1X2, BTTS, totals, top scorelines, and ranked daily angles in one view.</p>
+            </div>
+            <div className="rounded-2xl border border-border bg-card/55 p-4 text-left backdrop-blur-sm">
+              <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.18em] text-warning">
+                <Clock3 className="h-3.5 w-3.5" />
+                Freshness
+              </div>
+              <p className="mt-2 text-sm text-foreground">
+                {updatedAt ? `Predictions refreshed ${updatedAt.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}` : "Predictions refresh throughout the day"}
+              </p>
+              <p className="mt-1 text-xs text-muted-foreground">Use the dashboard for live state; pre-match confidence is clearly separated from in-game swings.</p>
+            </div>
           </motion.div>
 
           {/* Stats bar */}

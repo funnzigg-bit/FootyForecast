@@ -74,6 +74,21 @@ const Dashboard = () => {
           )}
         </div>
 
+        <div className="grid gap-3 sm:grid-cols-3">
+          <div className="rounded-xl border border-border bg-card p-3 text-xs text-muted-foreground">
+            <span className="font-semibold text-foreground">Live engine</span>
+            <p className="mt-1">In-game alerts and live probabilities refresh roughly every 30 seconds.</p>
+          </div>
+          <div className="rounded-xl border border-border bg-card p-3 text-xs text-muted-foreground">
+            <span className="font-semibold text-foreground">Pre-match vs live</span>
+            <p className="mt-1">Pre-match picks rank the fixture; live views shift with scoreline, minute, and pressure.</p>
+          </div>
+          <div className="rounded-xl border border-border bg-card p-3 text-xs text-muted-foreground">
+            <span className="font-semibold text-foreground">Coverage</span>
+            <p className="mt-1">{allPredictions.length} fixtures currently tracked across {uniqueLeagues} leagues.</p>
+          </div>
+        </div>
+
         <div className="grid gap-4 sm:gap-6 lg:grid-cols-3">
           <div className="lg:col-span-2 space-y-4 sm:space-y-6">
             <LiveMatchTable matches={adaptedMatches} predictions={predictions} watchedIds={watchedIds} onToggleWatch={toggleWatch} />

@@ -2,9 +2,10 @@ import { useState } from "react";
 import DashboardLayout from "@/components/dashboard/DashboardLayout";
 import { usePredictionsData } from "@/hooks/usePredictionsData";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Search, Filter, ArrowUpDown, Loader2, Calendar, Star, TrendingUp } from "lucide-react";
+import { Search, Filter, ArrowUpDown, Loader2, Calendar, Star, TrendingUp, Clock3 } from "lucide-react";
 import TeamBadge from "@/components/TeamBadge";
 import { getConfidenceLabel } from "@/services/footballPredictionEngine";
 import { getMarketLabel, getPredictionPriority, rankPredictions, uniquePredictionsByFixture } from "@/lib/predictionInsights";
@@ -54,6 +55,21 @@ const getMatchTimestamp = (dateStr?: string) => {
   return Number.isNaN(timestamp) ? Number.POSITIVE_INFINITY : timestamp;
 };
 
+const getStatusBadge = (status?: string, minute?: number) => {
+  switch (status) {
+    case "live":
+      return <Badge className="text-[9px] bg-primary/20 text-primary border-primary/30">Live {minute ?? 0}'</Badge>;
+    case "halftime":
+      return <Badge className="text-[9px] bg-warning/20 text-warning border-warning/30">HT</Badge>;
+    case "finished":
+      return <Badge className="text-[9px] bg-muted text-muted-foreground border-border">FT</Badge>;
+    default:
+      return <Badge className="text-[9px] bg-secondary text-muted-foreground border-border">Pre-match</Badge>;
+  }
+};
+
+type QuickPreset = "all" | "today" | "live" | "high_confidence" | "value" | "goals";
+
 const WinProbBar = ({ home, draw, away, homeTeam, awayTeam }: { home: number; draw: number; away: number; homeTeam: string; awayTeam: string }) => (
   <div className="space-y-1.5">
     <div className="flex items-center justify-between text-[10px]">
@@ -70,16 +86,19 @@ const WinProbBar = ({ home, draw, away, homeTeam, awayTeam }: { home: number; dr
 );
 
 const Predictions = () => {
-  const { data: predictions = [], isLoading, error } = usePredictionsData();
+  const { data: predictions = [], isLoading, error, dataUpdatedAt } = usePredictionsData();
   const [search, setSearch] = useState("");
   const [leagueFilter, setLeagueFilter] = useState("all");
   const [confFilter, setConfFilter] = useState("all");
   const [statusFilter, setStatusFilter] = useState("all");
+  const [quickPreset, setQuickPreset] = useState<QuickPreset>("all");
   const [sortKey, setSortKey] = useState<'date' | 'confidence' | 'league' | 'priority'>('date');
   const [sortAsc, setSortAsc] = useState(false);
 
   const rankedPredictions = uniquePredictionsByFixture(rankPredictions(predictions));
   const leagues = [...new Set(rankedPredictions.map(p => p.league))].sort();
+  const todayDate = new Date().toDateString();
+  const updatedAt = dataUpdatedAt ? new Date(dataUpdatedAt) : null;
 
   const filtered = rankedPredictions.filter(p => {
     if (search) {
@@ -89,6 +108,13 @@ const Predictions = () => {
     if (leagueFilter !== "all" && p.league !== leagueFilter) return false;
     if (confFilter !== "all" && p.confidenceLevel !== confFilter) return false;
     if (statusFilter !== "all" && (p.status || "scheduled") !== statusFilter) return false;
+    if (quickPreset === "today") {
+      if (!p.matchDate || new Date(p.matchDate).toDateString() !== todayDate) return false;
+    }
+    if (quickPreset === "live" && (p.status || "scheduled") !== "live") return false;
+    if (quickPreset === "high_confidence" && p.confidence < 75) return false;
+    if (quickPreset === "value" && !p.isValue) return false;
+    if (quickPreset === "goals" && p.over25Prob < 65 && p.bttsProb < 62) return false;
     return true;
   });
 
@@ -117,6 +143,34 @@ const Predictions = () => {
           <p className="text-xs text-muted-foreground mt-1">
             {isLoading ? 'Loading...' : `${predictions.length} matches · Enhanced ML engine with Poisson scoring`}
           </p>
+          {updatedAt && (
+            <div className="mt-2 inline-flex items-center gap-1.5 text-[11px] text-muted-foreground">
+              <Clock3 className="h-3.5 w-3.5" />
+              Updated {updatedAt.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
+            </div>
+          )}
+        </div>
+
+        <div className="flex flex-wrap gap-2">
+          {[
+            { id: "all", label: "All" },
+            { id: "today", label: "Today" },
+            { id: "live", label: "Live" },
+            { id: "high_confidence", label: "High Confidence" },
+            { id: "value", label: "Value" },
+            { id: "goals", label: "Goals" },
+          ].map((preset) => (
+            <Button
+              key={preset.id}
+              type="button"
+              size="sm"
+              variant={quickPreset === preset.id ? "default" : "outline"}
+              className="h-8 text-xs"
+              onClick={() => setQuickPreset(preset.id as QuickPreset)}
+            >
+              {preset.label}
+            </Button>
+          ))}
         </div>
 
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
@@ -189,6 +243,7 @@ const Predictions = () => {
                       <tr key={p.id} className="border-b border-border/20 transition-colors hover:bg-secondary/20">
                         <td className="px-4 py-3 text-muted-foreground truncate max-w-[120px]">{p.league}</td>
                         <td className="px-4 py-3">
+                          <div className="mb-1">{getStatusBadge(p.status, p.minute)}</div>
                           <div className="font-medium text-foreground"><TeamBadge name={p.homeTeam} logo={p.homeLogo} size={14} /></div>
                           <div className="font-medium text-foreground mt-0.5"><TeamBadge name={p.awayTeam} logo={p.awayLogo} size={14} /></div>
                         </td>
@@ -252,6 +307,7 @@ const Predictions = () => {
                     <div className="flex items-center justify-between">
                       <span className="text-[10px] text-muted-foreground">{p.league}</span>
                       <div className="flex items-center gap-1.5">
+                        {getStatusBadge(p.status, p.minute)}
                         {p.isValue && <Badge className="text-[9px] bg-primary/20 text-primary border-primary/30">Value</Badge>}
                         {p.isUpset && <Badge className="text-[9px] bg-warning/20 text-warning border-warning/30">Upset</Badge>}
                       {getConfBadge(p.confidenceLevel)}

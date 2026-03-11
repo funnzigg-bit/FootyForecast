@@ -10,9 +10,9 @@ interface StatsData {
 const StatsWidgets = ({ stats }: { stats: StatsData }) => {
   const widgets = [
     { icon: Radio, label: "Live Matches", value: stats.liveMatches, color: "text-foreground", iconColor: "text-accent" },
-    { icon: TrendingUp, label: "Hot Matches", value: stats.hotMatches, color: "text-primary", iconColor: "text-primary" },
-    { icon: BarChart3, label: "Predictions", value: stats.alertsToday || '–', color: "text-accent", iconColor: "text-accent" },
-    { icon: Target, label: "Leagues", value: stats.predictionAccuracy || '–', color: "text-primary", iconColor: "text-primary" },
+    { icon: TrendingUp, label: "Live Signals", value: stats.hotMatches, color: "text-primary", iconColor: "text-primary" },
+    { icon: BarChart3, label: "Tracked Fixtures", value: stats.alertsToday || '–', color: "text-accent", iconColor: "text-accent" },
+    { icon: Target, label: "Leagues Covered", value: stats.predictionAccuracy || '–', color: "text-primary", iconColor: "text-primary" },
   ];
 
   return (
