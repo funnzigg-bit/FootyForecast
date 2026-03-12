@@ -1,8 +1,13 @@
-import { Badge } from "@/components/ui/badge";
 import { Bell } from "lucide-react";
 
+type AlertItem = {
+  id?: string;
+  title?: string;
+  message?: string;
+};
+
 interface Props {
-  alerts: any[];
+  alerts: AlertItem[];
 }
 
 const RecentAlerts = ({ alerts }: Props) => {

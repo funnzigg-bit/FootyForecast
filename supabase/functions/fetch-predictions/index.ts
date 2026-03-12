@@ -8,6 +8,54 @@ const corsHeaders = {
 
 const BASE = 'https://sports.bzzoiro.com/api';
 const CACHE_MAX_AGE_MS = 4 * 60 * 60 * 1000;
+type JsonRecord = Record<string, unknown>;
+type ConfidenceLevel = 'elite' | 'high' | 'medium' | 'low' | 'very_risky';
+type MatchStatus = 'live' | 'scheduled' | 'finished' | 'halftime';
+
+type EnhancedPrediction = {
+  id: string;
+  fixtureId?: number | string;
+  league: string;
+  leagueCountry: string;
+  leagueLogo?: string;
+  homeTeam: string;
+  awayTeam: string;
+  homeLogo?: string;
+  awayLogo?: string;
+  matchDate?: string;
+  homeScore: number;
+  awayScore: number;
+  homeWinProb: number;
+  drawProb: number;
+  awayWinProb: number;
+  predictedResult: 'Home Win' | 'Draw' | 'Away Win';
+  predictedScore: string;
+  confidence: number;
+  confidenceLevel: ConfidenceLevel;
+  over25Prob: number;
+  over35Prob: number;
+  bttsProb: number;
+  bttsResult: 'Yes' | 'No';
+  isUpset: boolean;
+  upsetScore: number;
+  upsetConfidence?: number;
+  riskLevel?: 'High' | 'Medium' | 'Low';
+  isValue: boolean;
+  valueEdge?: number;
+  topScores: { score: string; probability: number }[];
+  pickScore: number;
+  totalGoalsExpected: number;
+  recommendedMarket: string;
+  reasoning: string;
+  homeTeamScore: number;
+  awayTeamScore: number;
+  minute: number;
+  status: MatchStatus;
+};
+
+function asRecord(value: unknown): JsonRecord {
+  return typeof value === 'object' && value !== null ? value as JsonRecord : {};
+}
 
 const TARGET_LEAGUES = new Set([
   'premier league', 'la liga', 'bundesliga', 'serie a',
@@ -73,6 +121,24 @@ function normalizeThreeWayFromOdds(homeOdds: unknown, drawOdds: unknown, awayOdd
   return implied.map((value) => (value / total) * 100) as [number, number, number];
 }
 
+function finalizeProbabilitySet(homeWinProb: number, drawProb: number, awayWinProb: number) {
+  const rounded = [
+    Math.max(1, Math.round(homeWinProb)),
+    Math.max(1, Math.round(drawProb)),
+    Math.max(1, Math.round(awayWinProb)),
+  ];
+  const total = rounded[0] + rounded[1] + rounded[2];
+  const drift = 100 - total;
+  const strongestIndex = rounded.indexOf(Math.max(...rounded));
+  rounded[strongestIndex] += drift;
+
+  return {
+    homeWinProb: rounded[0],
+    drawProb: rounded[1],
+    awayWinProb: rounded[2],
+  };
+}
+
 function rebalanceDraw(
   homeWinProb: number,
   drawProb: number,
@@ -80,17 +146,207 @@ function rebalanceDraw(
 ) {
   const strongestSide = Math.max(homeWinProb, awayWinProb);
   const sideGap = Math.abs(homeWinProb - awayWinProb);
-  const drawCap = sideGap >= 20 ? 24 : sideGap >= 12 ? 27 : 31;
-  const boostedDrawFloor = sideGap <= 6 ? 24 : 20;
-  const adjustedDraw = Math.min(drawCap, Math.max(boostedDrawFloor, drawProb - sideGap * 0.22 - Math.max(0, strongestSide - 45) * 0.18));
+  const drawCap =
+    strongestSide >= 68 ? 17 :
+    strongestSide >= 60 ? 20 :
+    sideGap >= 20 ? 24 :
+    sideGap >= 12 ? 27 : 31;
+  const boostedDrawFloor =
+    strongestSide >= 68 ? 10 :
+    strongestSide >= 60 ? 14 :
+    sideGap <= 6 ? 24 : 18;
+  const adjustedDraw = Math.min(
+    drawCap,
+    Math.max(
+      boostedDrawFloor,
+      drawProb -
+      sideGap * 0.28 -
+      Math.max(0, strongestSide - 45) * 0.28
+    )
+  );
   const remaining = 100 - adjustedDraw;
   const decisivePool = Math.max(homeWinProb + awayWinProb, 1);
 
-  return {
-    homeWinProb: Math.round((homeWinProb / decisivePool) * remaining),
-    drawProb: Math.round(adjustedDraw),
-    awayWinProb: Math.round((awayWinProb / decisivePool) * remaining),
-  };
+  return finalizeProbabilitySet(
+    (homeWinProb / decisivePool) * remaining,
+    adjustedDraw,
+    (awayWinProb / decisivePool) * remaining,
+  );
+}
+
+function amplifyFavorite(
+  homeWinProb: number,
+  drawProb: number,
+  awayWinProb: number,
+) {
+  const strongestSide = Math.max(homeWinProb, awayWinProb);
+  const sideGap = Math.abs(homeWinProb - awayWinProb);
+
+  if (strongestSide < 58 || sideGap < 16) {
+    return finalizeProbabilitySet(homeWinProb, drawProb, awayWinProb);
+  }
+
+  const favoriteIsHome = homeWinProb >= awayWinProb;
+  const favoriteBoost =
+    strongestSide >= 72 ? 7 :
+    strongestSide >= 65 ? 5 :
+    3;
+  const drawReduction =
+    strongestSide >= 72 ? 4 :
+    strongestSide >= 65 ? 3 :
+    2;
+  const underdogReduction = Math.max(1, favoriteBoost - 1);
+
+  const nextHome = favoriteIsHome ? homeWinProb + favoriteBoost : Math.max(4, homeWinProb - underdogReduction);
+  const nextAway = favoriteIsHome ? Math.max(4, awayWinProb - underdogReduction) : awayWinProb + favoriteBoost;
+  const nextDraw = Math.max(6, drawProb - drawReduction);
+
+  return finalizeProbabilitySet(nextHome, nextDraw, nextAway);
+}
+
+function softenCoinflipDraw(
+  homeWinProb: number,
+  drawProb: number,
+  awayWinProb: number,
+) {
+  const sideGap = Math.abs(homeWinProb - awayWinProb);
+  const strongestSide = Math.max(homeWinProb, awayWinProb);
+
+  if (sideGap > 8 || strongestSide > 46 || drawProb <= 30) {
+    return finalizeProbabilitySet(homeWinProb, drawProb, awayWinProb);
+  }
+
+  const drawTrim = Math.min(4, Math.max(2, drawProb - 28));
+  return finalizeProbabilitySet(
+    homeWinProb + drawTrim / 2,
+    drawProb - drawTrim,
+    awayWinProb + drawTrim / 2,
+  );
+}
+
+function marketBlendWeight(market: [number, number, number] | null) {
+  if (!market) return 0;
+  const strongest = Math.max(...market);
+  const sideGap = Math.abs(market[0] - market[2]);
+
+  if (strongest >= 68 || sideGap >= 35) return 0.64;
+  if (strongest >= 58 || sideGap >= 22) return 0.52;
+  return 0.4;
+}
+
+function inferPredictedResult(
+  predictedResult: string,
+  homeWinProb: number,
+  drawProb: number,
+  awayWinProb: number,
+) {
+  const strongest = Math.max(homeWinProb, drawProb, awayWinProb);
+  const tolerance = 2;
+
+  if (strongest === drawProb && drawProb >= homeWinProb + tolerance && drawProb >= awayWinProb + tolerance) {
+    return 'Draw';
+  }
+  if (strongest === awayWinProb && awayWinProb >= homeWinProb + tolerance) {
+    return 'Away Win';
+  }
+  if (strongest === homeWinProb && homeWinProb >= awayWinProb + tolerance) {
+    return 'Home Win';
+  }
+
+  return predictedResult;
+}
+
+function getConfidenceBand(confidence: number): ConfidenceLevel {
+  if (confidence >= 84) return 'elite';
+  if (confidence >= 70) return 'high';
+  if (confidence >= 55) return 'medium';
+  if (confidence >= 40) return 'low';
+  return 'very_risky';
+}
+
+function getFavoriteGuardrail(
+  strongest: number,
+  probabilityGap: number,
+  drawProb: number,
+) {
+  if (strongest >= 74 && probabilityGap >= 34 && drawProb <= 16) return 82;
+  if (strongest >= 66 && probabilityGap >= 24 && drawProb <= 20) return 70;
+  if (strongest >= 60 && probabilityGap >= 16 && drawProb <= 24) return 58;
+  if (strongest >= 55 && probabilityGap >= 12 && drawProb <= 28) return 46;
+  return 28;
+}
+
+function calibrateConfidenceScore(
+  strongest: number,
+  probabilityGap: number,
+  spread: number,
+  drawProb: number,
+  bsdConfidence: number,
+) {
+  const drawSuppression = Math.max(0, 28 - drawProb);
+  const score = Math.round(
+    4 +
+    strongest * 0.38 +
+    probabilityGap * 0.45 +
+    spread * 0.08 +
+    drawSuppression * 0.2 +
+    bsdConfidence * 0.05
+  );
+
+  return Math.min(92, Math.max(28, score));
+}
+
+function getConfidenceContext(
+  homeWin: number,
+  draw: number,
+  awayWin: number,
+) {
+  const strongest = Math.max(homeWin, draw, awayWin);
+  const sorted = [homeWin, draw, awayWin].sort((a, b) => b - a);
+  const probabilityGap = sorted[0] - sorted[1];
+  const spread = sorted[0] - sorted[2];
+
+  return { strongest, probabilityGap, spread };
+}
+
+function calibrateProbabilitySet(
+  homeWinProb: number,
+  drawProb: number,
+  awayWinProb: number,
+  homeOdds: unknown,
+  drawOdds: unknown,
+  awayOdds: unknown,
+) {
+  const market = normalizeThreeWayFromOdds(homeOdds, drawOdds, awayOdds);
+  const marketWeight = marketBlendWeight(market);
+  const baseWeight = 1 - marketWeight;
+  const blended = market
+    ? {
+        homeWinProb: homeWinProb * baseWeight + market[0] * marketWeight,
+        drawProb: drawProb * baseWeight + market[1] * marketWeight,
+        awayWinProb: awayWinProb * baseWeight + market[2] * marketWeight,
+      }
+    : { homeWinProb, drawProb, awayWinProb };
+
+  const rebalanced = rebalanceDraw(blended.homeWinProb, blended.drawProb, blended.awayWinProb);
+  const favored = amplifyFavorite(rebalanced.homeWinProb, rebalanced.drawProb, rebalanced.awayWinProb);
+  const tightened = softenCoinflipDraw(favored.homeWinProb, favored.drawProb, favored.awayWinProb);
+  const sharpened = sharpenProbabilities(tightened.homeWinProb, tightened.drawProb, tightened.awayWinProb);
+  return finalizeProbabilitySet(sharpened.homeWinProb, sharpened.drawProb, sharpened.awayWinProb);
+}
+
+// --- Enhanced confidence scoring (5-tier) ---
+function calculateEnhancedConfidence(
+  homeWin: number, draw: number, awayWin: number,
+  bsdConfidence: number,
+) {
+  const { strongest, probabilityGap, spread } = getConfidenceContext(homeWin, draw, awayWin);
+  const score = calibrateConfidenceScore(strongest, probabilityGap, spread, draw, bsdConfidence);
+  const guardrail = getFavoriteGuardrail(strongest, probabilityGap, draw);
+  const clamped = Math.max(guardrail, score);
+  const confidence = Math.min(92, Math.max(28, clamped));
+
+  return { confidence, confidenceLevel: getConfidenceBand(confidence) };
 }
 
 function sharpenProbabilities(
@@ -106,44 +362,13 @@ function sharpenProbabilities(
   const drift = 100 - rounded.reduce((sum, value) => sum + value, 0);
   rounded[0] += drift;
 
-  return {
-    homeWinProb: rounded[0],
-    drawProb: rounded[1],
-    awayWinProb: rounded[2],
-  };
-}
-
-function calibrateProbabilitySet(
-  homeWinProb: number,
-  drawProb: number,
-  awayWinProb: number,
-  homeOdds: unknown,
-  drawOdds: unknown,
-  awayOdds: unknown,
-) {
-  const market = normalizeThreeWayFromOdds(homeOdds, drawOdds, awayOdds);
-  const blended = market
-    ? {
-        homeWinProb: homeWinProb * 0.62 + market[0] * 0.38,
-        drawProb: drawProb * 0.62 + market[1] * 0.38,
-        awayWinProb: awayWinProb * 0.62 + market[2] * 0.38,
-      }
-    : { homeWinProb, drawProb, awayWinProb };
-
-  const rebalanced = rebalanceDraw(blended.homeWinProb, blended.drawProb, blended.awayWinProb);
-  const sharpened = sharpenProbabilities(rebalanced.homeWinProb, rebalanced.drawProb, rebalanced.awayWinProb);
-  const total = sharpened.homeWinProb + sharpened.drawProb + sharpened.awayWinProb;
-
-  return {
-    homeWinProb: sharpened.homeWinProb,
-    drawProb: sharpened.drawProb,
-    awayWinProb: sharpened.awayWinProb + (100 - total),
-  };
+  return finalizeProbabilitySet(rounded[0], rounded[1], rounded[2]);
 }
 
 function pickFirstString(...values: unknown[]): string | undefined {
   for (const value of values) {
     if (typeof value === 'string' && value.trim()) return value.trim();
+    if (typeof value === 'number' && Number.isFinite(value)) return String(value);
   }
   return undefined;
 }
@@ -272,35 +497,6 @@ function topCorrectScores(homeLambda: number, awayLambda: number, count = 3) {
   return scores.slice(0, count).map(s => ({ score: s.score, probability: Math.round(s.prob * 100) }));
 }
 
-// --- Enhanced confidence scoring (5-tier) ---
-function calculateEnhancedConfidence(
-  homeWin: number, draw: number, awayWin: number,
-  bsdConfidence: number,
-) {
-  const probs = [homeWin, draw, awayWin].sort((a, b) => b - a);
-  const strongest = probs[0];
-  const probabilityGap = probs[0] - probs[1];
-  const spread = probs[0] - probs[2];
-  const score = Math.round(
-    16 +
-    strongest * 0.48 +
-    probabilityGap * 0.68 +
-    spread * 0.12 +
-    bsdConfidence * 0.16
-  );
-
-  const clamped = Math.min(92, Math.max(28, score));
-
-  let band: string;
-  if (clamped >= 85) band = 'elite';
-  else if (clamped >= 75) band = 'high';
-  else if (clamped >= 60) band = 'medium';
-  else if (clamped >= 45) band = 'low';
-  else band = 'very_risky';
-
-  return { confidence: clamped, confidenceLevel: band };
-}
-
 // --- Value detection ---
 function detectValue(modelProb: number, impliedProb: number | null) {
   if (!impliedProb || impliedProb <= 0) return { isValue: false, edge: 0 };
@@ -386,7 +582,7 @@ function getRecommendedMarket(
   return marketOptions.sort((a, b) => b.score - a.score)[0]?.label || predictedResult;
 }
 
-function getFixtureIdentity(prediction: any) {
+function getFixtureIdentity(prediction: Partial<EnhancedPrediction>) {
   if (prediction.fixtureId != null) return String(prediction.fixtureId);
   return [
     prediction.matchDate?.slice(0, 10) || 'unknown-date',
@@ -395,8 +591,8 @@ function getFixtureIdentity(prediction: any) {
   ].join('::');
 }
 
-function dedupePredictions(predictions: any[]) {
-  const bestByFixture = new Map<string, any>();
+function dedupePredictions(predictions: EnhancedPrediction[]) {
+  const bestByFixture = new Map<string, EnhancedPrediction>();
 
   for (const prediction of predictions) {
     const key = getFixtureIdentity(prediction);
@@ -421,8 +617,8 @@ serve(async (req) => {
 
   let forceRefresh = false;
   try {
-    const body = await req.json().catch(() => ({}));
-    forceRefresh = body?.force === true || body?.time != null;
+    const body = asRecord(await req.json().catch(() => ({})));
+    forceRefresh = body.force === true || body.time != null;
   } catch { /* ignore */ }
 
   try {
@@ -435,7 +631,9 @@ serve(async (req) => {
         .single();
 
       if (cached && (Date.now() - new Date(cached.fetched_at).getTime()) < CACHE_MAX_AGE_MS) {
-        const predictions = cached.predictions_data as any[];
+        const predictions = Array.isArray(cached.predictions_data)
+          ? cached.predictions_data as EnhancedPrediction[]
+          : [];
         return new Response(JSON.stringify({ predictions, count: predictions.length, cached: true }), {
           headers: { ...corsHeaders, 'Content-Type': 'application/json' },
         });
@@ -451,27 +649,32 @@ serve(async (req) => {
 
     const apiHeaders = { 'Authorization': `Token ${API_KEY}` };
 
-    let allResults: any[] = [];
+    let allResults: JsonRecord[] = [];
     let url: string | null = `${BASE}/predictions/`;
 
     while (url && allResults.length < 100) {
       const res = await fetch(url, { headers: apiHeaders });
       if (!res.ok) throw new Error(`BSD API error: ${res.status}`);
-      const data = await res.json();
-      allResults = allResults.concat(data.results || []);
-      url = data.next;
+      const data = asRecord(await res.json());
+      const results = Array.isArray(data.results)
+        ? data.results.map((entry) => asRecord(entry))
+        : [];
+      allResults = allResults.concat(results);
+      url = typeof data.next === 'string' && data.next ? data.next : null;
     }
 
-    const filtered = allResults.filter((pred: any) => {
-      const leagueName = (pred.event?.league?.name || '').toLowerCase();
+    const filtered = allResults.filter((pred) => {
+      const event = asRecord(pred.event);
+      const league = asRecord(event.league);
+      const leagueName = pickFirstString(league.name)?.toLowerCase() || '';
       return TARGET_LEAGUES.has(leagueName);
     });
 
     const predictions = dedupePredictions(
       filtered
-        .map((pred: any) => mapEnhancedPrediction(pred, API_KEY))
-        .filter((prediction: any) => prediction.homeTeam !== prediction.awayTeam)
-        .sort((a: any, b: any) => (b.pickScore ?? 0) - (a.pickScore ?? 0))
+        .map((pred) => mapEnhancedPrediction(pred, API_KEY))
+        .filter((prediction) => prediction.homeTeam !== prediction.awayTeam)
+        .sort((a, b) => (b.pickScore ?? 0) - (a.pickScore ?? 0))
     );
 
     // Save to cache
@@ -492,16 +695,19 @@ serve(async (req) => {
   }
 });
 
-function mapEnhancedPrediction(pred: any, apiKey: string) {
-  const event = pred.event || {};
-  const league = event.league || {};
-  const homeTeamObj = event.home_team_obj;
-  const awayTeamObj = event.away_team_obj;
+function mapEnhancedPrediction(pred: JsonRecord, apiKey: string): EnhancedPrediction {
+  const event = asRecord(pred.event);
+  const league = asRecord(event.league);
+  const homeTeamObj = asRecord(event.home_team_obj);
+  const awayTeamObj = asRecord(event.away_team_obj);
   const IMG_BASE = 'https://sports.bzzoiro.com/img';
 
-  const homeLogo = homeTeamObj?.api_id ? `${IMG_BASE}/team/${homeTeamObj.api_id}/?token=${apiKey}` : undefined;
-  const awayLogo = awayTeamObj?.api_id ? `${IMG_BASE}/team/${awayTeamObj.api_id}/?token=${apiKey}` : undefined;
-  const leagueLogo = league.api_id ? `${IMG_BASE}/league/${league.api_id}/?token=${apiKey}` : undefined;
+  const homeTeamApiId = pickFirstString(homeTeamObj.api_id);
+  const awayTeamApiId = pickFirstString(awayTeamObj.api_id);
+  const leagueApiId = pickFirstString(league.api_id);
+  const homeLogo = homeTeamApiId ? `${IMG_BASE}/team/${homeTeamApiId}/?token=${apiKey}` : undefined;
+  const awayLogo = awayTeamApiId ? `${IMG_BASE}/team/${awayTeamApiId}/?token=${apiKey}` : undefined;
+  const leagueLogo = leagueApiId ? `${IMG_BASE}/league/${leagueApiId}/?token=${apiKey}` : undefined;
 
   const normalizedProbabilities = normalizeProbabilitySet(
     pred.prob_home_win,
@@ -520,9 +726,10 @@ function mapEnhancedPrediction(pred: any, apiKey: string) {
   let predictedResult: string = 'Draw';
   if (pred.predicted_result === 'H') predictedResult = 'Home Win';
   else if (pred.predicted_result === 'A') predictedResult = 'Away Win';
+  predictedResult = inferPredictedResult(predictedResult, homeWinProb, drawProb, awayWinProb);
 
   // BSD confidence
-  const rawConf = pred.confidence ?? 0.5;
+  const rawConf = asNumber(pred.confidence) ?? 0.5;
   const bsdConfidence = rawConf <= 1 ? Math.round(rawConf * 100) : Math.round(rawConf);
 
   // Enhanced confidence (5-tier)
@@ -574,11 +781,14 @@ function mapEnhancedPrediction(pred: any, apiKey: string) {
   );
 
   // Value detection (use implied odds if available)
-  const impliedHomeOdds = pred.odds_home ? (1 / pred.odds_home) * 100 : null;
+  const oddsHome = asNumber(pred.odds_home);
+  const oddsAway = asNumber(pred.odds_away);
+  const oddsDraw = asNumber(pred.odds_draw);
+  const impliedHomeOdds = oddsHome ? (1 / oddsHome) * 100 : null;
   const bestProb = Math.max(homeWinProb, drawProb, awayWinProb);
   const bestImplied = predictedResult === 'Home Win' ? impliedHomeOdds :
-                      predictedResult === 'Away Win' ? (pred.odds_away ? (1 / pred.odds_away) * 100 : null) :
-                      (pred.odds_draw ? (1 / pred.odds_draw) * 100 : null);
+                      predictedResult === 'Away Win' ? (oddsAway ? (1 / oddsAway) * 100 : null) :
+                      (oddsDraw ? (1 / oddsDraw) * 100 : null);
   const { isValue, edge } = detectValue(bestProb, bestImplied);
 
   // Upset scoring

@@ -58,8 +58,9 @@ const Onboarding = () => {
       });
       await supabase.from("profiles").update({ onboarding_completed: true, timezone }).eq("user_id", user.id);
       navigate("/predictions");
-    } catch (err: any) {
-      toast({ title: "Error saving preferences", description: err.message, variant: "destructive" });
+    } catch (err: unknown) {
+      const description = err instanceof Error ? err.message : "Failed to save your preferences.";
+      toast({ title: "Error saving preferences", description, variant: "destructive" });
     }
     setLoading(false);
   };

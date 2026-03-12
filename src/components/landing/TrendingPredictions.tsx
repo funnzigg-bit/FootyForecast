@@ -3,7 +3,7 @@ import { usePredictionsData } from "@/hooks/usePredictionsData";
 import { Badge } from "@/components/ui/badge";
 import { Loader2 } from "lucide-react";
 import TeamBadge from "@/components/TeamBadge";
-import { getMarketLabel, getPredictionAngle, getScorelineLean, isPredictionToday, isUpcomingPrediction, rankPredictions, uniquePredictionsByFixture } from "@/lib/predictionInsights";
+import { getMarketLabel, getPredictionAngle, isPredictionToday, isUpcomingPrediction, rankPredictions, uniquePredictionsByFixture } from "@/lib/predictionInsights";
 
 const TrendingPredictions = () => {
   const { data: allPredictions = [], isLoading } = usePredictionsData();
@@ -66,10 +66,6 @@ const TrendingPredictions = () => {
                   <div className="flex items-center justify-between text-xs">
                     <span className="text-muted-foreground">Best angle</span>
                     <span className="font-medium text-foreground">{getMarketLabel(p)}</span>
-                  </div>
-                  <div className="flex items-center justify-between text-xs">
-                    <span className="text-muted-foreground">Score lean</span>
-                    <span className="font-mono font-bold text-foreground">{getScorelineLean(p)}</span>
                   </div>
                   <div className="flex items-center justify-between text-xs">
                     <span className="text-muted-foreground">Over 2.5</span>

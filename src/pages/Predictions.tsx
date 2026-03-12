@@ -8,7 +8,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Search, Filter, ArrowUpDown, Loader2, Calendar, Star, TrendingUp, Clock3 } from "lucide-react";
 import TeamBadge from "@/components/TeamBadge";
 import { getConfidenceLabel } from "@/services/footballPredictionEngine";
-import { getMarketLabel, getPredictionPriority, rankPredictions, sortPredictionsByKickoff, uniquePredictionsByFixture } from "@/lib/predictionInsights";
+import { getMarketLabel, getPredictionPriority, getStrongestWinProbability, PredictionSortMetric, rankPredictions, sortPredictionsByMetric, uniquePredictionsByFixture } from "@/lib/predictionInsights";
 
 const getConfBadge = (level: string) => {
   const label = getConfidenceLabel(level);
@@ -64,6 +64,16 @@ const getStatusBadge = (status?: string, minute?: number) => {
 
 type QuickPreset = "all" | "today" | "live" | "high_confidence" | "value" | "goals";
 
+const getSortDirectionLabel = (sortKey: PredictionSortMetric | "league", sortAsc: boolean) => {
+  if (sortKey === "date") {
+    return sortAsc ? "Latest first" : "Earliest first";
+  }
+  if (sortKey === "league") {
+    return sortAsc ? "Z to A" : "A to Z";
+  }
+  return sortAsc ? "Lowest first" : "Highest first";
+};
+
 const WinProbBar = ({ home, draw, away, homeTeam, awayTeam }: { home: number; draw: number; away: number; homeTeam: string; awayTeam: string }) => (
   <div className="space-y-1.5">
     <div className="flex items-center justify-between text-[10px]">
@@ -86,7 +96,7 @@ const Predictions = () => {
   const [confFilter, setConfFilter] = useState("all");
   const [statusFilter, setStatusFilter] = useState("all");
   const [quickPreset, setQuickPreset] = useState<QuickPreset>("all");
-  const [sortKey, setSortKey] = useState<'date' | 'confidence' | 'league' | 'priority'>('date');
+  const [sortKey, setSortKey] = useState<PredictionSortMetric | "league">("date");
   const [sortAsc, setSortAsc] = useState(false);
 
   const rankedPredictions = uniquePredictionsByFixture(rankPredictions(predictions));
@@ -112,26 +122,22 @@ const Predictions = () => {
     return true;
   });
 
-  const sorted = (
-    sortKey === "date"
-      ? sortPredictionsByKickoff(filtered)
-      : [...filtered].sort((a, b) => {
-          const cmp =
-            sortKey === 'confidence'
-              ? b.confidence - a.confidence
-              : sortKey === 'priority'
-              ? getPredictionPriority(b) - getPredictionPriority(a)
-              : a.league.localeCompare(b.league);
-          return cmp;
-        })
-  );
-
-  if (sortAsc) sorted.reverse();
+  const sorted = sortKey === "league"
+    ? [...filtered].sort((a, b) => a.league.localeCompare(b.league))
+    : sortPredictionsByMetric(filtered, sortKey, sortAsc ? "asc" : "desc");
 
   const handleSort = (key: typeof sortKey) => {
     if (sortKey === key) setSortAsc(!sortAsc);
     else { setSortKey(key); setSortAsc(false); }
   };
+
+  const sortButtons: { id: PredictionSortMetric; label: string }[] = [
+    { id: "date", label: "Kickoff" },
+    { id: "win_probability", label: "Win Probability" },
+    { id: "confidence", label: "Confidence" },
+    { id: "btts", label: "BTTS" },
+    { id: "over25", label: "O2.5" },
+  ];
 
   return (
     <DashboardLayout>
@@ -169,6 +175,32 @@ const Predictions = () => {
               {preset.label}
             </Button>
           ))}
+        </div>
+
+        <div className="flex flex-wrap items-center gap-2">
+          <span className="text-[11px] font-semibold uppercase tracking-[0.16em] text-muted-foreground">Sort by</span>
+          {sortButtons.map((button) => (
+            <Button
+              key={button.id}
+              type="button"
+              size="sm"
+              variant={sortKey === button.id ? "default" : "outline"}
+              className="h-8 text-xs"
+              onClick={() => handleSort(button.id)}
+            >
+              {button.label}
+              {sortKey === button.id && <ArrowUpDown className="ml-1 h-3 w-3" />}
+            </Button>
+          ))}
+          <Button
+            type="button"
+            size="sm"
+            variant="secondary"
+            className="h-8 text-xs"
+            onClick={() => setSortAsc((prev) => !prev)}
+          >
+            {getSortDirectionLabel(sortKey, sortAsc)}
+          </Button>
         </div>
 
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
@@ -225,14 +257,22 @@ const Predictions = () => {
                         <button onClick={() => handleSort('league')} className="flex items-center gap-1 hover:text-foreground">League <ArrowUpDown className="h-3 w-3" /></button>
                       </th>
                       <th className="px-4 py-3 text-left font-medium">Match</th>
-                      <th className="px-4 py-3 text-left font-medium">Date</th>
-                      <th className="px-4 py-3 text-center font-medium">Win Probabilities</th>
+                      <th className="px-4 py-3 text-left font-medium">
+                        <button onClick={() => handleSort('date')} className="flex items-center gap-1 hover:text-foreground">Date <ArrowUpDown className="h-3 w-3" /></button>
+                      </th>
+                      <th className="px-4 py-3 text-center font-medium">
+                        <button onClick={() => handleSort('win_probability')} className="mx-auto flex items-center gap-1 hover:text-foreground">Win Probabilities <ArrowUpDown className="h-3 w-3" /></button>
+                      </th>
                       <th className="px-4 py-3 text-center font-medium">
                         <button onClick={() => handleSort('confidence')} className="flex items-center gap-1 hover:text-foreground mx-auto">Conf. <ArrowUpDown className="h-3 w-3" /></button>
                       </th>
                       <th className="px-4 py-3 text-center font-medium">Top Scores</th>
-                      <th className="px-4 py-3 text-center font-medium">BTTS</th>
-                      <th className="px-4 py-3 text-center font-medium">O2.5</th>
+                      <th className="px-4 py-3 text-center font-medium">
+                        <button onClick={() => handleSort('btts')} className="mx-auto flex items-center gap-1 hover:text-foreground">BTTS <ArrowUpDown className="h-3 w-3" /></button>
+                      </th>
+                      <th className="px-4 py-3 text-center font-medium">
+                        <button onClick={() => handleSort('over25')} className="mx-auto flex items-center gap-1 hover:text-foreground">O2.5 <ArrowUpDown className="h-3 w-3" /></button>
+                      </th>
                       <th className="px-4 py-3 text-center font-medium">Flags</th>
                     </tr>
                   </thead>
@@ -248,6 +288,7 @@ const Predictions = () => {
                         <td className="px-4 py-3 text-muted-foreground text-[10px] whitespace-nowrap">{formatMatchDate(p.matchDate)}</td>
                         <td className="px-4 py-3 min-w-[200px]">
                           <WinProbBar home={p.homeWinProb} draw={p.drawProb} away={p.awayWinProb} homeTeam="H" awayTeam="A" />
+                          <div className="mt-1 text-center text-[9px] text-muted-foreground">Top edge {getStrongestWinProbability(p)}%</div>
                         </td>
                         <td className="px-4 py-3 text-center">
                           <div className="flex flex-col items-center gap-1">

@@ -24,7 +24,6 @@ const Index = () => {
       <HeroSection />
       <SectionDivider />
       <TrendingPredictions />
-      <SectionDivider />
       <ConfidenceHeatmap />
       <SectionDivider />
       <HowItWorks />
@@ -32,12 +31,14 @@ const Index = () => {
       <FeaturesSection />
       <SectionDivider />
       <LeaguesSection />
-      <SectionDivider />
-      <PricingSection />
-      <SectionDivider />
-      <TestimonialsSection />
-      <SectionDivider />
-      <FAQSection />
+      <div className="relative overflow-hidden border-y border-border/60 bg-secondary/10">
+        <div className="absolute inset-0 bg-grid opacity-20" />
+        <div className="relative">
+          <PricingSection />
+          <TestimonialsSection />
+          <FAQSection />
+        </div>
+      </div>
       <CTASection />
       <Footer />
     </div>

@@ -3,15 +3,17 @@ import DashboardLayout from "@/components/dashboard/DashboardLayout";
 import { usePredictionsData } from "@/hooks/usePredictionsData";
 import { BarChart3, Loader2 } from "lucide-react";
 import TeamBadge from "@/components/TeamBadge";
-import { getPredictionAngle, isUpcomingPrediction, rankPredictions, uniquePredictionsByFixture } from "@/lib/predictionInsights";
+import { getPredictionAngle, isUpcomingPrediction, rankPredictions, sortPredictionsByKickoff, uniquePredictionsByFixture } from "@/lib/predictionInsights";
 
 const GoalsMarket = () => {
   const { data: predictions = [], isLoading, error } = usePredictionsData();
 
   const data = useMemo(
     () =>
-      uniquePredictionsByFixture(
-        rankPredictions(predictions.filter((prediction) => isUpcomingPrediction(prediction)))
+      sortPredictionsByKickoff(
+        uniquePredictionsByFixture(
+          rankPredictions(predictions.filter((prediction) => isUpcomingPrediction(prediction)))
+        )
       ).map((p) => ({
         matchId: p.id,
         league: p.league,
@@ -31,14 +33,37 @@ const GoalsMarket = () => {
   const over25 = data.filter(d => d.over25Prob >= 65).sort((a, b) => b.over25Prob - a.over25Prob);
   const over35 = data.filter(d => d.over35Prob >= 40 || (d.totalGoalsExpected ?? 0) >= 3.25).sort((a, b) => b.over35Prob - a.over35Prob);
   const bttsYes = data.filter(d => d.bttsProb >= 60).sort((a, b) => b.bttsProb - a.bttsProb);
+  const over25Fallback = [...data].sort((a, b) => b.over25Prob - a.over25Prob).slice(0, 3);
+  const over35Fallback = [...data].sort((a, b) => (b.over35Prob || 0) - (a.over35Prob || 0)).slice(0, 3);
 
-  const Section = ({ title, items, valueKey, label }: { title: string; items: typeof data; valueKey: 'over25Prob' | 'over35Prob' | 'bttsProb'; label: string }) => (
+  const Section = ({
+    title,
+    items,
+    fallbackItems,
+    valueKey,
+    label,
+  }: {
+    title: string;
+    items: typeof data;
+    fallbackItems?: typeof data;
+    valueKey: 'over25Prob' | 'over35Prob' | 'bttsProb';
+    label: string;
+  }) => {
+    const displayItems = items.length > 0 ? items : (fallbackItems ?? []);
+    const showingFallback = items.length === 0 && displayItems.length > 0;
+
+    return (
     <div>
       <h2 className="text-sm font-semibold text-foreground mb-3 flex items-center gap-2">
         <BarChart3 className="h-4 w-4 text-primary" /> {title}
       </h2>
+      {showingFallback && (
+        <p className="mb-3 text-xs text-muted-foreground">
+          No matches currently clear the strong-match threshold for this market. Showing the closest available fixtures instead.
+        </p>
+      )}
       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-        {items.map(d => (
+        {displayItems.map(d => (
           <div key={d.matchId} className="rounded-xl border border-border bg-card p-4 hover:border-border/80 transition-colors">
             <div className="text-[10px] text-muted-foreground mb-1">{d.league}</div>
             <div className="text-sm font-semibold text-foreground flex items-center gap-1 flex-wrap"><TeamBadge name={d.homeTeam} logo={d.homeLogo} size={16} /> <span className="text-muted-foreground">vs</span> <TeamBadge name={d.awayTeam} logo={d.awayLogo} size={16} /></div>
@@ -60,10 +85,11 @@ const GoalsMarket = () => {
             <p className="mt-2 text-[10px] text-muted-foreground">{d.angle}</p>
           </div>
         ))}
-        {items.length === 0 && <div className="col-span-full text-sm text-muted-foreground p-4 text-center">No matches found for this market.</div>}
+        {displayItems.length === 0 && <div className="col-span-full text-sm text-muted-foreground p-4 text-center">No matches found for this market.</div>}
       </div>
     </div>
   );
+  };
 
   return (
     <DashboardLayout>
@@ -83,8 +109,8 @@ const GoalsMarket = () => {
           </div>
         ) : (
           <>
-            <Section title="Over 2.5 Goals" items={over25} valueKey="over25Prob" label="Over 2.5 probability" />
-            <Section title="Over 3.5 Goals" items={over35} valueKey="over35Prob" label="Over 3.5 probability" />
+            <Section title="Over 2.5 Goals" items={over25} fallbackItems={over25Fallback} valueKey="over25Prob" label="Over 2.5 probability" />
+            <Section title="Over 3.5 Goals" items={over35} fallbackItems={over35Fallback} valueKey="over35Prob" label="Over 3.5 probability" />
             <Section title="BTTS Yes" items={bttsYes} valueKey="bttsProb" label="BTTS probability" />
           </>
         )}

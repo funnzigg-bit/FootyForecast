@@ -64,6 +64,23 @@ const PickCard = ({ p }: { p: MatchPrediction }) => (
   </div>
 );
 
+const getSortedDistinctPicks = (list: MatchPrediction[]) =>
+  sortPredictionsByKickoff(uniquePredictionsByFixture(rankPredictions(list)));
+
+const getCategoryPicks = (
+  ranked: MatchPrediction[],
+  primaryFilter: (prediction: MatchPrediction) => boolean,
+  fallbackSort: (a: MatchPrediction, b: MatchPrediction) => number,
+) => {
+  const primary = getSortedDistinctPicks(ranked.filter(primaryFilter)).slice(0, 4);
+  if (primary.length > 0) {
+    return { items: primary, fallback: false };
+  }
+
+  const fallback = getSortedDistinctPicks([...ranked].sort(fallbackSort)).slice(0, 4);
+  return { items: fallback, fallback: fallback.length > 0 };
+};
+
 const DailyPicks = () => {
   const { data: predictions = [], isLoading, error } = usePredictionsData();
 
@@ -75,26 +92,67 @@ const DailyPicks = () => {
     );
     const todayPredictions = source.filter((prediction) => isPredictionToday(prediction));
     const ranked = rankPredictions(todayPredictions.length > 0 ? todayPredictions : source);
-    const distinct = (list: MatchPrediction[]) => sortPredictionsByKickoff(
-      uniquePredictionsByFixture(rankPredictions(list))
+    const resultPicks = getCategoryPicks(
+      ranked,
+      (prediction) => getMarketLabel(prediction) === prediction.predictedResult && prediction.confidence >= 60,
+      (a, b) => ((b.confidence + Math.max(b.homeWinProb, b.drawProb, b.awayWinProb)) - (a.confidence + Math.max(a.homeWinProb, a.drawProb, a.awayWinProb)))
+    );
+    const goalsPicks = getCategoryPicks(
+      ranked,
+      (prediction) => prediction.over25Prob >= 62 || (prediction.totalGoalsExpected ?? 0) >= 2.75,
+      (a, b) => ((b.over25Prob + (b.totalGoalsExpected ?? 0) * 10) - (a.over25Prob + (a.totalGoalsExpected ?? 0) * 10))
+    );
+    const bttsPicks = getCategoryPicks(
+      ranked,
+      (prediction) => prediction.bttsProb >= 58,
+      (a, b) => b.bttsProb - a.bttsProb
+    );
+    const valuePicks = getCategoryPicks(
+      ranked,
+      (prediction) => prediction.isValue || (prediction.valueEdge ?? 0) >= 4,
+      (a, b) => ((b.valueEdge ?? 0) + b.confidence * 0.25) - ((a.valueEdge ?? 0) + a.confidence * 0.25)
     );
 
     return {
       pickOfDay: ranked[0] || null,
       picks: {
-        resultPicks: distinct(ranked.filter(p => getMarketLabel(p) === p.predictedResult && p.confidence >= 65)).slice(0, 4),
-        goalsPicks: distinct(ranked.filter(p => p.over25Prob >= 66 || (p.totalGoalsExpected ?? 0) >= 2.9)).slice(0, 4),
-        bttsPicks: distinct(ranked.filter(p => p.bttsProb >= 62)).slice(0, 4),
-        valuePicks: distinct(ranked.filter(p => p.isValue || (p.valueEdge ?? 0) >= 5)).slice(0, 4),
+        resultPicks,
+        goalsPicks,
+        bttsPicks,
+        valuePicks,
       },
     };
   }, [predictions]);
 
   const sections = [
-    { title: "Best Result Picks", icon: Target, data: picks.resultPicks },
-    { title: "Best Goals Picks", icon: BarChart3, data: picks.goalsPicks },
-    { title: "BTTS Picks", icon: TrendingUp, data: picks.bttsPicks },
-    { title: "Value Picks", icon: Zap, data: picks.valuePicks },
+    {
+      title: "Best Result Picks",
+      icon: Target,
+      data: picks.resultPicks.items,
+      fallback: picks.resultPicks.fallback,
+      fallbackMessage: "No strong result picks cleared the main threshold, so these are the closest current options.",
+    },
+    {
+      title: "Best Goals Picks",
+      icon: BarChart3,
+      data: picks.goalsPicks.items,
+      fallback: picks.goalsPicks.fallback,
+      fallbackMessage: "No strong goals picks cleared the main threshold, so these are the closest current options.",
+    },
+    {
+      title: "BTTS Picks",
+      icon: TrendingUp,
+      data: picks.bttsPicks.items,
+      fallback: picks.bttsPicks.fallback,
+      fallbackMessage: "No strong BTTS picks cleared the main threshold, so these are the closest current options.",
+    },
+    {
+      title: "Value Picks",
+      icon: Zap,
+      data: picks.valuePicks.items,
+      fallback: picks.valuePicks.fallback,
+      fallbackMessage: "No value edges cleared the main threshold, so these are the closest current options.",
+    },
   ];
 
   return (
@@ -172,6 +230,9 @@ const DailyPicks = () => {
                   <section.icon className="h-4 w-4 text-primary" />
                   <h2 className="text-sm font-semibold text-foreground">{section.title}</h2>
                 </div>
+                {section.fallback && (
+                  <p className="mb-3 text-xs text-muted-foreground">{section.fallbackMessage}</p>
+                )}
                 <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
                   {section.data.length > 0 ? section.data.map(p => (
                     <PickCard key={p.id} p={p} />

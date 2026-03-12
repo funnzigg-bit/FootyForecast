@@ -1,9 +1,11 @@
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import DashboardLayout from "@/components/dashboard/DashboardLayout";
 import { usePredictionsData } from "@/hooks/usePredictionsData";
 import { Badge } from "@/components/ui/badge";
-import { AlertTriangle, Loader2, Calendar } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { AlertTriangle, ArrowUpDown, Calendar, Loader2 } from "lucide-react";
 import TeamBadge from "@/components/TeamBadge";
+import { PredictionSortMetric, sortPredictionsByMetric } from "@/lib/predictionInsights";
 
 const formatMatchDate = (dateStr?: string) => {
   if (!dateStr) return '';
@@ -19,13 +21,29 @@ const formatMatchDate = (dateStr?: string) => {
 
 const UpsetWatch = () => {
   const { data: predictions = [], isLoading, error } = usePredictionsData();
+  const [sortKey, setSortKey] = useState<PredictionSortMetric>("date");
+  const [sortAsc, setSortAsc] = useState(false);
 
-  const upsets = useMemo(() =>
-    predictions
-      .filter(p => p.isUpset && (p.upsetScore ?? 0) > 0)
-      .sort((a, b) => (b.upsetScore ?? 0) - (a.upsetScore ?? 0)),
-    [predictions]
-  );
+  const upsets = useMemo(() => {
+    const filtered = predictions.filter(p => p.isUpset && (p.upsetScore ?? 0) > 0);
+    if (sortKey === "date") {
+      return sortPredictionsByMetric(filtered, "date", sortAsc ? "asc" : "desc");
+    }
+    return sortPredictionsByMetric(filtered, sortKey, sortAsc ? "asc" : "desc");
+  }, [predictions, sortAsc, sortKey]);
+
+  const handleSort = (key: PredictionSortMetric) => {
+    if (sortKey === key) setSortAsc(!sortAsc);
+    else { setSortKey(key); setSortAsc(false); }
+  };
+
+  const sortButtons: { id: PredictionSortMetric; label: string }[] = [
+    { id: "date", label: "Kickoff" },
+    { id: "win_probability", label: "Win Probability" },
+    { id: "confidence", label: "Confidence" },
+    { id: "btts", label: "BTTS" },
+    { id: "over25", label: "O2.5" },
+  ];
 
   return (
     <DashboardLayout>
@@ -33,6 +51,23 @@ const UpsetWatch = () => {
         <div>
           <h1 className="text-xl font-bold text-foreground">Upset Watch</h1>
           <p className="text-xs text-muted-foreground mt-1">Matches where underdogs show strong upset potential · Scored by multi-factor model</p>
+        </div>
+
+        <div className="flex flex-wrap items-center gap-2">
+          <span className="text-[11px] font-semibold uppercase tracking-[0.16em] text-muted-foreground">Sort by</span>
+          {sortButtons.map((button) => (
+            <Button
+              key={button.id}
+              type="button"
+              size="sm"
+              variant={sortKey === button.id ? "default" : "outline"}
+              className="h-8 text-xs"
+              onClick={() => handleSort(button.id)}
+            >
+              {button.label}
+              {sortKey === button.id && <ArrowUpDown className="ml-1 h-3 w-3" />}
+            </Button>
+          ))}
         </div>
 
         {isLoading ? (

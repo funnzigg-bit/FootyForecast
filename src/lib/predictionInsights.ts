@@ -38,10 +38,14 @@ export function getPredictionPriority(prediction: MatchPrediction) {
   );
 }
 
+export function getStrongestWinProbability(prediction: MatchPrediction) {
+  return Math.max(prediction.homeWinProb, prediction.drawProb, prediction.awayWinProb);
+}
+
 export function getMarketLabel(prediction: MatchPrediction) {
   if (prediction.recommendedMarket) return prediction.recommendedMarket;
 
-  const resultStrength = Math.max(prediction.homeWinProb, prediction.drawProb, prediction.awayWinProb);
+  const resultStrength = getStrongestWinProbability(prediction);
   if (resultStrength >= prediction.over25Prob && resultStrength >= prediction.bttsProb) {
     return prediction.predictedResult;
   }
@@ -84,6 +88,33 @@ export function sortPredictionsByKickoff(predictions: MatchPrediction[], now = n
   return [...predictions].sort(
     (a, b) => getFixtureSortTimestamp(a, now) - getFixtureSortTimestamp(b, now)
   );
+}
+
+export type PredictionSortMetric = "date" | "win_probability" | "confidence" | "btts" | "over25" | "priority";
+
+export function sortPredictionsByMetric(
+  predictions: MatchPrediction[],
+  metric: PredictionSortMetric,
+  direction: "asc" | "desc" = "desc",
+  now = new Date(),
+) {
+  const ordered = metric === "date"
+    ? sortPredictionsByKickoff(predictions, now)
+    : [...predictions].sort((a, b) => {
+        const diff =
+          metric === "win_probability"
+            ? getStrongestWinProbability(b) - getStrongestWinProbability(a)
+            : metric === "confidence"
+            ? b.confidence - a.confidence
+            : metric === "btts"
+            ? b.bttsProb - a.bttsProb
+            : metric === "over25"
+            ? b.over25Prob - a.over25Prob
+            : getPredictionPriority(b) - getPredictionPriority(a);
+        return diff;
+      });
+
+  return direction === "asc" ? [...ordered].reverse() : ordered;
 }
 
 export function rankPredictions(predictions: MatchPrediction[]) {

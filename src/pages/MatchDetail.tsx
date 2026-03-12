@@ -181,21 +181,9 @@ const MatchDetail = () => {
   }, [liveMatch, prediction]);
 
   const liveCount = liveMatches.filter(m => m.status === 'live').length;
-
-  if (!match) {
-    return (
-      <DashboardLayout liveMatchCount={liveCount}>
-        <div className="flex flex-col items-center justify-center py-20">
-          <p className="text-muted-foreground">Match not found</p>
-          <Link to="/live"><Button variant="outline" size="sm" className="mt-4 gap-2"><ArrowLeft className="h-4 w-4" />Back to Live</Button></Link>
-        </div>
-      </DashboardLayout>
-    );
-  }
-
-  const s = match.stats;
+  const s = match?.stats ?? null;
   const liveProbabilities = useMemo(() => {
-    if (!prediction) return null;
+    if (!prediction || !match) return null;
     if (match.status !== 'live' && match.status !== 'halftime') {
       return {
         home: prediction.homeWinProb,
@@ -209,7 +197,18 @@ const MatchDetail = () => {
       { home: match.homeScore, away: match.awayScore, minute: match.minute },
       s
     );
-  }, [match.awayScore, match.homeScore, match.minute, match.status, prediction, s]);
+  }, [match, prediction, s]);
+
+  if (!match) {
+    return (
+      <DashboardLayout liveMatchCount={liveCount}>
+        <div className="flex flex-col items-center justify-center py-20">
+          <p className="text-muted-foreground">Match not found</p>
+          <Link to="/live"><Button variant="outline" size="sm" className="mt-4 gap-2"><ArrowLeft className="h-4 w-4" />Back to Live</Button></Link>
+        </div>
+      </DashboardLayout>
+    );
+  }
 
   return (
     <DashboardLayout liveMatchCount={liveCount}>

@@ -1,5 +1,24 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 
+type OddsOutcome = Record<string, unknown>;
+type OddsMarket = {
+  key?: string;
+  outcomes?: OddsOutcome[];
+};
+type Bookmaker = {
+  key?: string;
+  title?: string;
+  markets?: OddsMarket[];
+};
+type OddsEvent = {
+  id?: string;
+  sport_key?: string;
+  home_team?: string;
+  away_team?: string;
+  commence_time?: string;
+  bookmakers?: Bookmaker[];
+};
+
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version',
@@ -29,20 +48,21 @@ serve(async (req) => {
     }
 
     const data = await res.json();
+    const events = Array.isArray(data) ? data as OddsEvent[] : [];
 
     // Map to simplified format
-    const odds = data.map((event: any) => ({
+    const odds = events.map((event) => ({
       id: event.id,
       sport: event.sport_key,
       homeTeam: event.home_team,
       awayTeam: event.away_team,
       commenceTime: event.commence_time,
-      bookmakers: event.bookmakers?.slice(0, 3).map((b: any) => ({
-        key: b.key,
-        title: b.title,
-        markets: b.markets?.map((m: any) => ({
-          key: m.key,
-          outcomes: m.outcomes,
+      bookmakers: event.bookmakers?.slice(0, 3).map((bookmaker) => ({
+        key: bookmaker.key,
+        title: bookmaker.title,
+        markets: bookmaker.markets?.map((market) => ({
+          key: market.key,
+          outcomes: market.outcomes,
         })),
       })),
     }));
