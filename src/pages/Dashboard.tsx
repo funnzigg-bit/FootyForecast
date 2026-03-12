@@ -13,6 +13,7 @@ import { useDerivedAlerts } from "@/hooks/useDerivedAlerts";
 import { LiveMatch } from "@/services/liveDataService";
 import { Loader2, Radio, WifiOff } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
+import { formatDecimalOddsAsFractional } from "@/lib/oddsInsights";
 
 const Dashboard = () => {
   const { user } = useAuth();
@@ -65,7 +66,7 @@ const Dashboard = () => {
 
   return (
     <DashboardLayout liveMatchCount={liveCount}>
-      <div className="space-y-4 sm:space-y-6">
+      <div className="space-y-4 sm:space-y-5">
         <StatsWidgets stats={stats} />
 
         <div className="rounded-2xl border border-border/80 bg-card/85 px-4 py-3 shadow-[0_16px_40px_-34px_rgba(0,0,0,0.85)]">
@@ -108,18 +109,26 @@ const Dashboard = () => {
           )}
         </div>
 
-        <div className="grid gap-3 sm:grid-cols-3">
-          <div className="rounded-xl border border-border bg-card p-3 text-xs text-muted-foreground">
-            <span className="font-semibold text-foreground">Live engine</span>
-            <p className="mt-1">In-game alerts and live probabilities refresh roughly every 30 seconds.</p>
+        <div className="grid gap-4 lg:grid-cols-[1.55fr_0.95fr]">
+          <div className="space-y-4">
+            <div>
+              <div className="text-[11px] font-semibold uppercase tracking-[0.18em] text-muted-foreground">Live board</div>
+              <h2 className="mt-1 text-xl font-bold text-foreground">Current matches and in-play probability signals</h2>
+            </div>
+            <LiveMatchTable matches={adaptedMatches} predictions={predictions} watchedIds={watchedIds} onToggleWatch={toggleWatch} />
           </div>
-          <div className="rounded-xl border border-border bg-card p-3 text-xs text-muted-foreground">
-            <span className="font-semibold text-foreground">Pre-match vs live</span>
-            <p className="mt-1">Pre-match picks rank the fixture; live views shift with scoreline, minute, and pressure.</p>
-          </div>
-          <div className="rounded-xl border border-border bg-card p-3 text-xs text-muted-foreground">
-            <span className="font-semibold text-foreground">Coverage</span>
-            <p className="mt-1">{allPredictions.length} fixtures currently tracked across {uniqueLeagues} leagues.</p>
+          <div className="space-y-4">
+            <div>
+              <div className="text-[11px] font-semibold uppercase tracking-[0.18em] text-muted-foreground">Monitoring rail</div>
+              <h2 className="mt-1 text-xl font-bold text-foreground">Watchlist, alerts, and live triggers</h2>
+            </div>
+            <WatchedGamesPanel matches={adaptedMatches} predictions={predictions} watchedIds={watchedIds} onToggleWatch={toggleWatch} />
+            <RecentAlerts alerts={alerts} />
+            <HotMatchesPanel matches={adaptedMatches} predictions={predictions} />
+            <div className="rounded-xl border border-border bg-card p-3 text-xs text-muted-foreground">
+              <span className="font-semibold text-foreground">Operational note</span>
+              <p className="mt-1">Pre-match picks stay stable, but live views shift with scoreline, minute, and pressure. Use the live board for timing, not just ranking.</p>
+            </div>
           </div>
         </div>
 
@@ -127,7 +136,7 @@ const Dashboard = () => {
           <div className="flex items-center justify-between gap-3">
             <div>
               <div className="text-[11px] font-semibold uppercase tracking-[0.18em] text-muted-foreground">Market snapshot</div>
-              <h2 className="mt-1 text-lg font-bold text-foreground">Best model edges against the average odds board</h2>
+              <h2 className="mt-1 text-base font-bold text-foreground">Best model edges against the average odds board</h2>
             </div>
           </div>
           <div className="mt-4 grid gap-3 lg:grid-cols-3">
@@ -141,9 +150,11 @@ const Dashboard = () => {
                 </div>
                 <div className="mt-1 text-[11px] text-muted-foreground">
                   Market {prediction.odds?.predictedSelection === "home" ? prediction.odds?.home.marketProbability : prediction.odds?.predictedSelection === "away" ? prediction.odds?.away.marketProbability : prediction.odds?.draw.marketProbability}% ·
-                  Best {settings.oddsDisplay === "best"
-                    ? prediction.odds?.predictedSelection === "home" ? prediction.odds?.home.bestOdds : prediction.odds?.predictedSelection === "away" ? prediction.odds?.away.bestOdds : prediction.odds?.draw.bestOdds
-                    : prediction.odds?.predictedSelection === "home" ? prediction.odds?.home.averageOdds : prediction.odds?.predictedSelection === "away" ? prediction.odds?.away.averageOdds : prediction.odds?.draw.averageOdds}
+                  Best {formatDecimalOddsAsFractional(
+                    settings.oddsDisplay === "best"
+                      ? prediction.odds?.predictedSelection === "home" ? prediction.odds?.home.bestOdds : prediction.odds?.predictedSelection === "away" ? prediction.odds?.away.bestOdds : prediction.odds?.draw.bestOdds
+                      : prediction.odds?.predictedSelection === "home" ? prediction.odds?.home.averageOdds : prediction.odds?.predictedSelection === "away" ? prediction.odds?.away.averageOdds : prediction.odds?.draw.averageOdds
+                  )}
                 </div>
               </div>
             )) : (
@@ -151,25 +162,6 @@ const Dashboard = () => {
                 Odds-backed value edges appear here once market prices are available for current fixtures.
               </div>
             )}
-          </div>
-        </div>
-
-        <div className="grid gap-4 sm:gap-6 lg:grid-cols-3">
-          <div className="space-y-4 sm:space-y-6 lg:col-span-2">
-            <div>
-              <div className="text-[11px] font-semibold uppercase tracking-[0.18em] text-muted-foreground">Live board</div>
-              <h2 className="mt-1 text-xl font-bold text-foreground">Current matches and in-play probability signals</h2>
-            </div>
-            <LiveMatchTable matches={adaptedMatches} predictions={predictions} watchedIds={watchedIds} onToggleWatch={toggleWatch} />
-          </div>
-          <div className="space-y-4 sm:space-y-6">
-            <div>
-              <div className="text-[11px] font-semibold uppercase tracking-[0.18em] text-muted-foreground">Watch and rank</div>
-              <h2 className="mt-1 text-xl font-bold text-foreground">Fixtures worth monitoring right now</h2>
-            </div>
-            <WatchedGamesPanel matches={adaptedMatches} predictions={predictions} watchedIds={watchedIds} onToggleWatch={toggleWatch} />
-            <HotMatchesPanel matches={adaptedMatches} predictions={predictions} />
-            <RecentAlerts alerts={alerts} />
           </div>
         </div>
       </div>

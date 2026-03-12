@@ -27,7 +27,7 @@ const HotMatchesPanel = ({ matches, predictions }: Props) => {
     <div className="rounded-xl border border-border bg-card">
       <div className="flex items-center gap-2 border-b border-border px-4 py-3">
         <TrendingUp className="h-4 w-4 text-primary" />
-        <h3 className="text-sm font-semibold text-foreground">Hot Matches</h3>
+        <h3 className="text-sm font-semibold text-foreground">Live Triggers</h3>
         <Badge className="bg-primary/20 text-primary border-primary/30 text-[10px] ml-auto">
           {hotMatches.length} active
         </Badge>
@@ -36,7 +36,7 @@ const HotMatchesPanel = ({ matches, predictions }: Props) => {
       <div className="divide-y divide-border/30">
         {hotMatches.length === 0 ? (
           <div className="p-6 text-center text-sm text-muted-foreground">
-            No hot matches detected right now
+            No live triggers detected right now
           </div>
         ) : (
           hotMatches.map((m) => {

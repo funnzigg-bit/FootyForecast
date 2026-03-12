@@ -19,7 +19,7 @@ const WatchedGamesPanel = ({ matches, predictions, watchedIds, onToggleWatch }: 
     <div className="rounded-xl border border-border bg-card">
       <div className="flex items-center gap-2 border-b border-border px-4 py-3">
         <Eye className="h-4 w-4 text-accent" />
-        <h3 className="text-sm font-semibold text-foreground">Watched Games</h3>
+        <h3 className="text-sm font-semibold text-foreground">Watchlist</h3>
         <Badge className="bg-accent/20 text-accent border-accent/30 text-[10px] ml-auto">
           {watchedMatches.length} tracked
         </Badge>

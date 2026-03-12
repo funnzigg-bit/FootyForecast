@@ -12,7 +12,7 @@ const floatingBadges = [
     label: "Live angle",
     text: "Arsenal vs Brighton",
     value: "Home Win 82%",
-    position: "top-8 -left-4 lg:top-16 lg:-left-12",
+    position: "top-12 left-2 lg:top-20 lg:-left-4",
     delay: 0,
     animation: "animate-float",
   },
@@ -20,17 +20,9 @@ const floatingBadges = [
     label: "Goals market",
     text: "Barcelona vs Valencia",
     value: "Over 2.5 78%",
-    position: "top-1/3 -right-2 lg:-right-8",
+    position: "top-1/3 right-1 lg:right-3",
     delay: 1.5,
     animation: "animate-float-slow",
-  },
-  {
-    label: "BTTS read",
-    text: "Real Madrid vs PSG",
-    value: "BTTS Yes 72%",
-    position: "bottom-12 -left-2 lg:bottom-16 lg:-left-6",
-    delay: 3,
-    animation: "animate-float-slower",
   },
 ];
 
@@ -64,15 +56,15 @@ const HeroSection = () => {
       <motion.div style={{ y: bgY }} className="absolute inset-0 bg-grid opacity-20" />
       <motion.div
         style={{ scale: orbScale, opacity: orbOpacity }}
-        className="absolute left-1/2 top-1/4 h-[520px] w-[520px] -translate-x-1/2 rounded-full bg-primary/5 blur-[100px]"
+        className="absolute left-1/2 top-1/4 h-[440px] w-[440px] -translate-x-1/2 rounded-full bg-primary/5 blur-[90px]"
       />
       <motion.div
         style={{ scale: orbScale, opacity: orbOpacity }}
-        className="absolute bottom-1/4 right-0 h-[300px] w-[300px] rounded-full bg-accent/5 blur-[80px]"
+        className="absolute bottom-1/4 right-0 h-[220px] w-[220px] rounded-full bg-accent/5 blur-[70px]"
       />
 
       <div className="relative mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
-        <div className="flex flex-col items-center pb-16 pt-20 text-center lg:pt-24">
+        <div className="flex flex-col items-center pb-12 pt-18 text-center lg:pt-22">
           <motion.div
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
@@ -87,10 +79,10 @@ const HeroSection = () => {
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.5, delay: 0.1 }}
-            className="max-w-6xl text-4xl font-black tracking-[-0.04em] text-foreground sm:text-5xl md:text-6xl lg:text-[5.8rem] lg:leading-[0.94]"
+            className="max-w-5xl text-4xl font-black tracking-[-0.04em] text-foreground sm:text-5xl md:text-6xl lg:text-[5.2rem] lg:leading-[0.95]"
           >
             <span className="block text-white">Predict the Weekend</span>
-            <span className="mt-2 block text-primary drop-shadow-[0_0_16px_rgba(132,204,22,0.4)] sm:mt-3">
+            <span className="mt-2 block text-primary drop-shadow-[0_0_12px_rgba(132,204,22,0.32)] sm:mt-3">
               Before It Happens
             </span>
           </motion.h1>
@@ -160,7 +152,7 @@ const HeroSection = () => {
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.5, delay: 0.4 }}
-            className="mt-10 grid w-full max-w-5xl gap-3 rounded-2xl border border-border/80 bg-background/80 p-4 text-left backdrop-blur-sm sm:grid-cols-[1.4fr_1fr_1fr]"
+            className="mt-10 grid w-full max-w-5xl gap-3 rounded-2xl border border-border/80 bg-background/80 p-4 text-left backdrop-blur-sm sm:grid-cols-[1.55fr_0.9fr_0.9fr]"
           >
             <div className="rounded-xl border border-border/70 bg-card/70 p-4">
               <div className="text-[11px] font-semibold uppercase tracking-[0.18em] text-primary">Methodology note</div>
@@ -182,26 +174,10 @@ const HeroSection = () => {
           </motion.div>
 
           <motion.div
-            initial={{ opacity: 0, y: 18 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.5, delay: 0.46 }}
-            className="mt-6 flex w-full max-w-5xl flex-wrap items-center justify-center gap-2"
-          >
-            {marketsCovered.map((market) => (
-              <div
-                key={market}
-                className="rounded-full border border-border/70 bg-card/65 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.16em] text-muted-foreground"
-              >
-                {market}
-              </div>
-            ))}
-          </motion.div>
-
-          <motion.div
             initial={{ opacity: 0, y: 40 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.8, delay: 0.5 }}
-            className="relative mt-16 hidden w-full md:block"
+            className="relative mt-14 hidden w-full md:block"
           >
             {floatingBadges.map((badge, i) => (
               <motion.div
@@ -212,7 +188,7 @@ const HeroSection = () => {
                 className={`absolute z-10 ${badge.position} ${badge.animation}`}
                 style={{ animationDelay: `${badge.delay}s` }}
               >
-                <div className="rounded-xl border border-border/80 bg-background/88 px-3 py-2 text-left shadow-xl backdrop-blur-sm">
+                <div className="rounded-xl border border-border/80 bg-background/90 px-3 py-2 text-left shadow-xl backdrop-blur-sm">
                   <div className="text-[10px] font-semibold uppercase tracking-[0.16em] text-primary">{badge.label}</div>
                   <div className="mt-1 text-xs font-semibold text-foreground">{badge.text}</div>
                   <div className="text-[11px] text-muted-foreground">{badge.value}</div>

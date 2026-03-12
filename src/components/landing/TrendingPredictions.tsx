@@ -14,7 +14,7 @@ const TrendingPredictions = () => {
   const predictions = (todaysPredictions.length > 0 ? todaysPredictions : upcoming).slice(0, 4);
 
   return (
-    <section className="py-24 bg-dots">
+    <section className="py-20 bg-dots">
       <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
         <motion.div
           initial={{ opacity: 0, y: 20 }}
@@ -37,7 +37,7 @@ const TrendingPredictions = () => {
         ) : predictions.length === 0 ? (
           <div className="mt-12 text-center text-sm text-muted-foreground">No predictions available right now. Check back soon.</div>
         ) : (
-          <div className="mt-12 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+          <div className="mt-10 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
             {predictions.map((p, i) => (
               <motion.div
                 key={p.id}

@@ -53,6 +53,19 @@ const UpsetWatch = () => {
           <p className="text-xs text-muted-foreground mt-1">Matches where underdogs show strong upset potential · Scored by multi-factor model</p>
         </div>
 
+        <div className="rounded-2xl border border-warning/20 bg-card px-4 py-4 shadow-[0_18px_40px_-34px_rgba(245,158,11,0.45)]">
+          <div className="flex items-start gap-3">
+            <div className="mt-0.5 flex h-9 w-9 items-center justify-center rounded-xl bg-warning/10 text-warning">
+              <AlertTriangle className="h-4 w-4" />
+            </div>
+            <div>
+              <div className="text-[11px] font-semibold uppercase tracking-[0.18em] text-warning">Underdog desk</div>
+              <div className="mt-1 text-sm font-semibold text-foreground">This view isolates fixtures where the underdog is carrying enough data to disrupt the favourite.</div>
+              <div className="mt-1 text-xs text-muted-foreground">Use the upset score for scan speed, then read the reasoning before treating it as a live angle or daily pick.</div>
+            </div>
+          </div>
+        </div>
+
         <div className="flex flex-wrap items-center gap-2">
           <span className="text-[11px] font-semibold uppercase tracking-[0.16em] text-muted-foreground">Sort by</span>
           {sortButtons.map((button) => (
