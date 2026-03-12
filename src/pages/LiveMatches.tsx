@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 import DashboardLayout from "@/components/dashboard/DashboardLayout";
 import { useLiveMatches } from "@/hooks/useLiveMatches";
 import { usePredictionsData } from "@/hooks/usePredictionsData";
+import { useLiveOddsMap } from "@/hooks/useOddsData";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -14,6 +15,7 @@ const LiveMatches = () => {
   const navigate = useNavigate();
   const { data: liveMatches = [], isLoading: liveLoading, error: liveError } = useLiveMatches(30000);
   const { data: predictions = [], isLoading: predLoading } = usePredictionsData();
+  const { data: oddsMap } = useLiveOddsMap(liveMatches);
   const [search, setSearch] = useState("");
   const [leagueFilter, setLeagueFilter] = useState("all");
   const [statusFilter, setStatusFilter] = useState("all");
@@ -164,18 +166,25 @@ const LiveMatches = () => {
                       <th className="px-4 py-3 text-center font-medium">Score</th>
                       <th className="px-4 py-3 text-left font-medium">Away</th>
                       <th className="px-4 py-3 text-center font-medium">Status</th>
+                      <th className="px-4 py-3 text-center font-medium">Avg H2H</th>
                     </tr>
                   </thead>
                   <tbody>
-                    {filtered.map(m => (
+                    {filtered.map(m => {
+                      const oddsEvent = oddsMap.get(m.id);
+                      const market = oddsEvent?.bookmakers[0]?.markets.find((entry) => entry.key === "h2h");
+                      return (
                       <tr key={m.id} onClick={() => navigate(`/match/${m.id}`)} className="border-b border-border/20 transition-colors hover:bg-secondary/20 cursor-pointer">
                         <td className="px-4 py-3 text-muted-foreground truncate max-w-[120px]">{m.league}</td>
                         <td className="px-4 py-3 font-medium text-foreground"><TeamBadge name={m.homeTeam} logo={m.homeLogo} /></td>
                         <td className="px-4 py-3 text-center font-mono font-bold text-foreground">{m.homeScore}-{m.awayScore}</td>
                         <td className="px-4 py-3 font-medium text-foreground"><TeamBadge name={m.awayTeam} logo={m.awayLogo} /></td>
                         <td className="px-4 py-3 text-center">{getStatusBadge(m.status, m.minute, m.matchDate)}</td>
+                        <td className="px-4 py-3 text-center text-[10px] text-muted-foreground">
+                          {market ? market.outcomes.map((outcome) => Number(outcome.price).toFixed(2)).join(" / ") : "—"}
+                        </td>
                       </tr>
-                    ))}
+                    )})}
                   </tbody>
                 </table>
               </div>

@@ -1,33 +1,33 @@
-import { useState } from "react";
 import DashboardLayout from "@/components/dashboard/DashboardLayout";
 import StatsWidgets from "@/components/dashboard/StatsWidgets";
 import LiveMatchTable from "@/components/dashboard/LiveMatchTable";
 import HotMatchesPanel from "@/components/dashboard/HotMatchesPanel";
 import WatchedGamesPanel from "@/components/dashboard/WatchedGamesPanel";
+import RecentAlerts from "@/components/dashboard/RecentAlerts";
 import { useLiveMatches, usePredictions } from "@/hooks/useLiveMatches";
 import { usePredictionsData } from "@/hooks/usePredictionsData";
+import { usePredictionsWithOdds } from "@/hooks/useOddsData";
+import { usePersistentWatchlist } from "@/hooks/usePersistentWatchlist";
+import { useUserPreferences } from "@/hooks/useUserPreferences";
+import { useDerivedAlerts } from "@/hooks/useDerivedAlerts";
 import { LiveMatch } from "@/services/liveDataService";
 import { Loader2, Radio, WifiOff } from "lucide-react";
+import { useAuth } from "@/contexts/AuthContext";
 
 const Dashboard = () => {
+  const { user } = useAuth();
   const { data: matches = [], isLoading, error, dataUpdatedAt } = useLiveMatches(30000);
-  const { data: allPredictions = [] } = usePredictionsData();
+  const { data: rawPredictions = [] } = usePredictionsData();
+  const { data: allPredictions = [] } = usePredictionsWithOdds(rawPredictions);
+  const { settings } = useUserPreferences();
   const predictions = usePredictions(matches);
-  const [watchedIds, setWatchedIds] = useState<Set<string>>(() => new Set());
-
-  const toggleWatch = (id: string) => {
-    setWatchedIds((prev) => {
-      const next = new Set(prev);
-      if (next.has(id)) next.delete(id);
-      else next.add(id);
-      return next;
-    });
-  };
+  const { watchedIds, toggleWatch } = usePersistentWatchlist(user?.id);
 
   const liveCount = matches.filter((match: LiveMatch) => match.status === "live").length;
   const hotCount = Array.from(predictions.values()).filter((prediction) => prediction.probabilityScore >= 62).length;
   const lastUpdated = dataUpdatedAt ? new Date(dataUpdatedAt) : new Date();
   const uniqueLeagues = new Set(allPredictions.map((prediction) => prediction.league)).size;
+  const { alerts } = useDerivedAlerts(user?.id, matches, predictions, allPredictions, watchedIds, settings);
   const marketPulse = matches
     .filter((match: LiveMatch) => match.status === "live")
     .map((match: LiveMatch) => ({
@@ -37,11 +37,15 @@ const Dashboard = () => {
     .filter((entry) => entry.prediction)
     .sort((a, b) => (b.prediction?.probabilityScore || 0) - (a.prediction?.probabilityScore || 0))
     .slice(0, 3);
+  const bestValueEdges = allPredictions
+    .filter((prediction) => prediction.odds?.predictedValueEdge != null)
+    .sort((left, right) => (right.odds?.predictedValueEdge ?? 0) - (left.odds?.predictedValueEdge ?? 0))
+    .slice(0, 3);
 
   const stats = {
     liveMatches: liveCount,
     hotMatches: hotCount,
-    alertsToday: allPredictions.length,
+    alertsToday: alerts.length,
     predictionAccuracy: uniqueLeagues,
   };
 
@@ -119,6 +123,37 @@ const Dashboard = () => {
           </div>
         </div>
 
+        <div className="rounded-2xl border border-border bg-card px-4 py-4">
+          <div className="flex items-center justify-between gap-3">
+            <div>
+              <div className="text-[11px] font-semibold uppercase tracking-[0.18em] text-muted-foreground">Market snapshot</div>
+              <h2 className="mt-1 text-lg font-bold text-foreground">Best model edges against the average odds board</h2>
+            </div>
+          </div>
+          <div className="mt-4 grid gap-3 lg:grid-cols-3">
+            {bestValueEdges.length > 0 ? bestValueEdges.map((prediction) => (
+              <div key={prediction.id} className="rounded-xl border border-border/70 bg-background/60 p-3">
+                <div className="text-[10px] uppercase tracking-[0.16em] text-muted-foreground">{prediction.league}</div>
+                <div className="mt-1 text-sm font-semibold text-foreground">{prediction.homeTeam} vs {prediction.awayTeam}</div>
+                <div className="mt-2 flex items-center justify-between text-xs">
+                  <span className="text-muted-foreground">{prediction.predictedResult}</span>
+                  <span className="font-mono font-bold text-primary">+{prediction.odds?.predictedValueEdge?.toFixed(1)}%</span>
+                </div>
+                <div className="mt-1 text-[11px] text-muted-foreground">
+                  Market {prediction.odds?.predictedSelection === "home" ? prediction.odds?.home.marketProbability : prediction.odds?.predictedSelection === "away" ? prediction.odds?.away.marketProbability : prediction.odds?.draw.marketProbability}% ·
+                  Best {settings.oddsDisplay === "best"
+                    ? prediction.odds?.predictedSelection === "home" ? prediction.odds?.home.bestOdds : prediction.odds?.predictedSelection === "away" ? prediction.odds?.away.bestOdds : prediction.odds?.draw.bestOdds
+                    : prediction.odds?.predictedSelection === "home" ? prediction.odds?.home.averageOdds : prediction.odds?.predictedSelection === "away" ? prediction.odds?.away.averageOdds : prediction.odds?.draw.averageOdds}
+                </div>
+              </div>
+            )) : (
+              <div className="rounded-xl border border-border/70 bg-background/60 p-3 text-sm text-muted-foreground lg:col-span-3">
+                Odds-backed value edges appear here once market prices are available for current fixtures.
+              </div>
+            )}
+          </div>
+        </div>
+
         <div className="grid gap-4 sm:gap-6 lg:grid-cols-3">
           <div className="space-y-4 sm:space-y-6 lg:col-span-2">
             <div>
@@ -134,6 +169,7 @@ const Dashboard = () => {
             </div>
             <WatchedGamesPanel matches={adaptedMatches} predictions={predictions} watchedIds={watchedIds} onToggleWatch={toggleWatch} />
             <HotMatchesPanel matches={adaptedMatches} predictions={predictions} />
+            <RecentAlerts alerts={alerts} />
           </div>
         </div>
       </div>

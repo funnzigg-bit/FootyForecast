@@ -3,7 +3,7 @@ import { Link, useLocation, useNavigate } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
 import {
   LayoutDashboard, Radio, BarChart3, TrendingUp,
-  Settings, LogOut, ChevronLeft, ChevronRight, Menu, Target, Flame, BookOpen
+  Settings, LogOut, ChevronLeft, ChevronRight, Menu, Target, Flame, BookOpen, Bell
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
@@ -20,6 +20,8 @@ const navItems = [
   { icon: Target, label: "Daily Picks", path: "/daily-picks" },
   { icon: Flame, label: "Upset Watch", path: "/upset-watch" },
   { icon: BarChart3, label: "Goals Market", path: "/goals-market" },
+  { icon: TrendingUp, label: "Analytics", path: "/analytics" },
+  { icon: Bell, label: "Alerts", path: "/alerts" },
   { icon: BookOpen, label: "Methodology", path: "/methodology" },
   { icon: Settings, label: "Settings", path: "/settings" },
 ];

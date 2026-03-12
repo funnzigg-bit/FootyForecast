@@ -1,6 +1,8 @@
 import { useMemo } from "react";
 import DashboardLayout from "@/components/dashboard/DashboardLayout";
 import { usePredictionsData } from "@/hooks/usePredictionsData";
+import { usePredictionsWithOdds } from "@/hooks/useOddsData";
+import { useUserPreferences } from "@/hooks/useUserPreferences";
 import { Badge } from "@/components/ui/badge";
 import { Target, BarChart3, TrendingUp, Zap, Crown, Loader2, Calendar } from "lucide-react";
 import { MatchPrediction, getConfidenceLabel } from "@/services/footballPredictionEngine";
@@ -54,6 +56,26 @@ const PickCard = ({ p }: { p: MatchPrediction }) => (
       <span className="text-muted-foreground">Best angle</span>
       <span className="font-medium text-foreground">{getMarketLabel(p)}</span>
     </div>
+    {p.odds && (
+      <div className="mt-2 rounded-lg border border-border/60 bg-secondary/10 p-2.5 text-[10px]">
+        <div className="flex items-center justify-between">
+          <span className="text-muted-foreground">Market</span>
+          <span className="font-mono font-bold text-foreground">
+            {p.odds.predictedSelection === "home"
+              ? p.odds.home.averageOdds?.toFixed(2) ?? "—"
+              : p.odds.predictedSelection === "away"
+              ? p.odds.away.averageOdds?.toFixed(2) ?? "—"
+              : p.odds.draw.averageOdds?.toFixed(2) ?? "—"}
+          </span>
+        </div>
+        <div className="mt-1 flex items-center justify-between">
+          <span className="text-muted-foreground">Value edge</span>
+          <span className={`font-mono font-bold ${(p.odds.predictedValueEdge ?? 0) >= 0 ? "text-primary" : "text-destructive"}`}>
+            {(p.odds.predictedValueEdge ?? 0) >= 0 ? "+" : ""}{p.odds.predictedValueEdge?.toFixed(1) ?? "0.0"}%
+          </span>
+        </div>
+      </div>
+    )}
     {p.totalGoalsExpected != null && (
       <div className="mt-1 flex items-center justify-between text-[10px] text-muted-foreground">
         <span>Expected goals</span>
@@ -82,7 +104,9 @@ const getCategoryPicks = (
 };
 
 const DailyPicks = () => {
-  const { data: predictions = [], isLoading, error } = usePredictionsData();
+  const { data: rawPredictions = [], isLoading, error } = usePredictionsData();
+  const { data: predictions = [] } = usePredictionsWithOdds(rawPredictions);
+  const { settings } = useUserPreferences();
 
   const { pickOfDay, picks } = useMemo(() => {
     const source = uniquePredictionsByFixture(
@@ -211,6 +235,36 @@ const DailyPicks = () => {
                       <span className="font-mono font-bold text-foreground">{getPredictionPriority(pickOfDay)}</span>
                     </div>
                   </div>
+                  {pickOfDay.odds && (
+                    <div className="grid gap-2 rounded-lg border border-border/60 bg-secondary/10 p-3 text-xs sm:grid-cols-3">
+                      <div>
+                        <span className="text-muted-foreground">{settings.oddsDisplay === "best" ? "Best price" : "Average price"}</span>
+                        <div className="font-mono font-bold text-foreground">
+                          {pickOfDay.odds.predictedSelection === "home"
+                            ? (settings.oddsDisplay === "best" ? pickOfDay.odds.home.bestOdds : pickOfDay.odds.home.averageOdds)?.toFixed(2) ?? "—"
+                            : pickOfDay.odds.predictedSelection === "away"
+                            ? (settings.oddsDisplay === "best" ? pickOfDay.odds.away.bestOdds : pickOfDay.odds.away.averageOdds)?.toFixed(2) ?? "—"
+                            : (settings.oddsDisplay === "best" ? pickOfDay.odds.draw.bestOdds : pickOfDay.odds.draw.averageOdds)?.toFixed(2) ?? "—"}
+                        </div>
+                      </div>
+                      <div>
+                        <span className="text-muted-foreground">Market probability</span>
+                        <div className="font-mono font-bold text-foreground">
+                          {pickOfDay.odds.predictedSelection === "home"
+                            ? pickOfDay.odds.home.marketProbability?.toFixed(1)
+                            : pickOfDay.odds.predictedSelection === "away"
+                            ? pickOfDay.odds.away.marketProbability?.toFixed(1)
+                            : pickOfDay.odds.draw.marketProbability?.toFixed(1)}%
+                        </div>
+                      </div>
+                      <div>
+                        <span className="text-muted-foreground">Value edge</span>
+                        <div className={`font-mono font-bold ${(pickOfDay.odds.predictedValueEdge ?? 0) >= 0 ? "text-primary" : "text-destructive"}`}>
+                          {(pickOfDay.odds.predictedValueEdge ?? 0) >= 0 ? "+" : ""}{pickOfDay.odds.predictedValueEdge?.toFixed(1) ?? "0.0"}%
+                        </div>
+                      </div>
+                    </div>
+                  )}
                   {pickOfDay.topScores && pickOfDay.topScores.length > 0 && (
                     <div className="flex items-center gap-3 text-xs">
                       <span className="text-muted-foreground">Top scores:</span>

@@ -19,6 +19,8 @@ const MatchDetail = lazy(() => import("./pages/MatchDetail"));
 const DailyPicks = lazy(() => import("./pages/DailyPicks"));
 const UpsetWatch = lazy(() => import("./pages/UpsetWatch"));
 const GoalsMarket = lazy(() => import("./pages/GoalsMarket"));
+const Analytics = lazy(() => import("./pages/Analytics"));
+const Alerts = lazy(() => import("./pages/Alerts"));
 const Methodology = lazy(() => import("./pages/Methodology"));
 const SettingsPage = lazy(() => import("./pages/Settings"));
 const NotFound = lazy(() => import("./pages/NotFound"));
@@ -54,6 +56,8 @@ const App = () => (
               <Route path="/daily-picks" element={<ProtectedRoute><DailyPicks /></ProtectedRoute>} />
               <Route path="/upset-watch" element={<ProtectedRoute><UpsetWatch /></ProtectedRoute>} />
               <Route path="/goals-market" element={<ProtectedRoute><GoalsMarket /></ProtectedRoute>} />
+              <Route path="/analytics" element={<ProtectedRoute><Analytics /></ProtectedRoute>} />
+              <Route path="/alerts" element={<ProtectedRoute><Alerts /></ProtectedRoute>} />
               <Route path="/methodology" element={<ProtectedRoute><Methodology /></ProtectedRoute>} />
               <Route path="/settings" element={<ProtectedRoute><SettingsPage /></ProtectedRoute>} />
               {/* Legacy redirects */}

@@ -1,13 +1,15 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import DashboardLayout from "@/components/dashboard/DashboardLayout";
 import { usePredictionsData } from "@/hooks/usePredictionsData";
+import { usePredictionsWithOdds } from "@/hooks/useOddsData";
+import { useUserPreferences } from "@/hooks/useUserPreferences";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Search, Filter, ArrowUpDown, Loader2, Calendar, Star, TrendingUp, Clock3 } from "lucide-react";
 import TeamBadge from "@/components/TeamBadge";
-import { getConfidenceLabel } from "@/services/footballPredictionEngine";
+import { getConfidenceLabel, MatchPrediction } from "@/services/footballPredictionEngine";
 import { getMarketLabel, getPredictionPriority, getStrongestWinProbability, PredictionSortMetric, rankPredictions, sortPredictionsByMetric, uniquePredictionsByFixture } from "@/lib/predictionInsights";
 
 const getConfBadge = (level: string) => {
@@ -89,15 +91,44 @@ const WinProbBar = ({ home, draw, away, homeTeam, awayTeam }: { home: number; dr
   </div>
 );
 
+const getDisplayedOdds = (mode: "average" | "best", averageOdds: number | null, bestOdds: number | null) => {
+  const value = mode === "best" ? bestOdds : averageOdds;
+  return value == null ? "—" : value.toFixed(2);
+};
+
+const getPredictedMarketLine = (prediction: MatchPrediction, mode: "average" | "best") => {
+  const odds = prediction.odds;
+  if (!odds) return null;
+
+  const selection = odds.predictedSelection === "home"
+    ? odds.home
+    : odds.predictedSelection === "away"
+    ? odds.away
+    : odds.draw;
+
+  return {
+    price: getDisplayedOdds(mode, selection.averageOdds, selection.bestOdds),
+    marketProbability: selection.marketProbability,
+    valueEdge: selection.valueEdge,
+    bookmaker: selection.bestBookmaker,
+  };
+};
+
 const Predictions = () => {
-  const { data: predictions = [], isLoading, error, dataUpdatedAt } = usePredictionsData();
+  const { data: rawPredictions = [], isLoading, error, dataUpdatedAt } = usePredictionsData();
+  const { data: predictions = [] } = usePredictionsWithOdds(rawPredictions);
+  const { settings } = useUserPreferences();
   const [search, setSearch] = useState("");
   const [leagueFilter, setLeagueFilter] = useState("all");
   const [confFilter, setConfFilter] = useState("all");
   const [statusFilter, setStatusFilter] = useState("all");
   const [quickPreset, setQuickPreset] = useState<QuickPreset>("all");
-  const [sortKey, setSortKey] = useState<PredictionSortMetric | "league">("date");
+  const [sortKey, setSortKey] = useState<PredictionSortMetric | "league">(settings.defaultPredictionSort);
   const [sortAsc, setSortAsc] = useState(false);
+
+  useEffect(() => {
+    setSortKey(settings.defaultPredictionSort);
+  }, [settings.defaultPredictionSort]);
 
   const rankedPredictions = uniquePredictionsByFixture(rankPredictions(predictions));
   const leagues = [...new Set(rankedPredictions.map(p => p.league))].sort();
@@ -267,6 +298,7 @@ const Predictions = () => {
                         <button onClick={() => handleSort('confidence')} className="flex items-center gap-1 hover:text-foreground mx-auto">Conf. <ArrowUpDown className="h-3 w-3" /></button>
                       </th>
                       <th className="px-4 py-3 text-center font-medium">Top Scores</th>
+                      <th className="px-4 py-3 text-center font-medium">Odds / Edge</th>
                       <th className="px-4 py-3 text-center font-medium">
                         <button onClick={() => handleSort('btts')} className="mx-auto flex items-center gap-1 hover:text-foreground">BTTS <ArrowUpDown className="h-3 w-3" /></button>
                       </th>
@@ -277,7 +309,9 @@ const Predictions = () => {
                     </tr>
                   </thead>
                   <tbody>
-                    {sorted.map(p => (
+                    {sorted.map(p => {
+                      const marketLine = getPredictedMarketLine(p, settings.oddsDisplay);
+                      return (
                       <tr key={p.id} className="border-b border-border/20 transition-colors hover:bg-secondary/20">
                         <td className="px-4 py-3 text-muted-foreground truncate max-w-[120px]">{p.league}</td>
                         <td className="px-4 py-3">
@@ -309,6 +343,19 @@ const Predictions = () => {
                           </div>
                         </td>
                         <td className="px-4 py-3 text-center">
+                          {marketLine ? (
+                            <div className="space-y-1 text-[10px]">
+                              <div className="font-mono font-bold text-foreground">{marketLine.price}</div>
+                              <div className="text-muted-foreground">Mkt {marketLine.marketProbability?.toFixed(1) ?? "—"}%</div>
+                              <div className={(marketLine.valueEdge ?? 0) >= 0 ? "text-primary" : "text-destructive"}>
+                                {(marketLine.valueEdge ?? 0) >= 0 ? "+" : ""}{marketLine.valueEdge?.toFixed(1) ?? "0.0"}%
+                              </div>
+                            </div>
+                          ) : (
+                            <span className="text-[10px] text-muted-foreground">No odds</span>
+                          )}
+                        </td>
+                        <td className="px-4 py-3 text-center">
                           <span className={`font-medium ${p.bttsResult === 'Yes' ? 'text-primary' : 'text-muted-foreground'}`}>{p.bttsResult}</span>
                         </td>
                         <td className="px-4 py-3 text-center font-mono text-muted-foreground">{p.over25Prob}%</td>
@@ -327,7 +374,7 @@ const Predictions = () => {
                           </div>
                         </td>
                       </tr>
-                    ))}
+                    )})}
                   </tbody>
                 </table>
               </div>
@@ -341,7 +388,9 @@ const Predictions = () => {
               {sorted.length === 0 && (
                 <div className="rounded-xl border border-border bg-card p-8 text-center text-sm text-muted-foreground">No predictions match your filters.</div>
               )}
-              {sorted.map(p => (
+              {sorted.map(p => {
+                const marketLine = getPredictedMarketLine(p, settings.oddsDisplay);
+                return (
                 <div key={p.id} className="rounded-xl border border-border bg-card p-4 space-y-3">
                     <div className="flex items-center justify-between">
                       <span className="text-[10px] text-muted-foreground">{p.league}</span>
@@ -403,6 +452,23 @@ const Predictions = () => {
                     </div>
                   </div>
 
+                  <div className="rounded-lg border border-border/60 bg-secondary/10 p-3">
+                    <div className="flex items-center justify-between text-[10px]">
+                      <span className="text-muted-foreground">{settings.oddsDisplay === "best" ? "Best price" : "Average price"}</span>
+                      <span className="font-mono font-bold text-foreground">{marketLine?.price ?? "—"}</span>
+                    </div>
+                    <div className="mt-1 flex items-center justify-between text-[10px]">
+                      <span className="text-muted-foreground">Market probability</span>
+                      <span className="font-mono text-foreground">{marketLine?.marketProbability?.toFixed(1) ?? "—"}%</span>
+                    </div>
+                    <div className="mt-1 flex items-center justify-between text-[10px]">
+                      <span className="text-muted-foreground">Value edge</span>
+                      <span className={`font-mono font-bold ${(marketLine?.valueEdge ?? 0) >= 0 ? "text-primary" : "text-destructive"}`}>
+                        {(marketLine?.valueEdge ?? 0) >= 0 ? "+" : ""}{marketLine?.valueEdge?.toFixed(1) ?? "0.0"}%
+                      </span>
+                    </div>
+                  </div>
+
                   <div className="flex items-center justify-between pt-1">
                     <span className="text-[10px] text-muted-foreground">Confidence</span>
                     <span className={`font-mono font-bold text-xs ${getConfColor(p.confidence)}`}>{p.confidence}%</span>
@@ -411,7 +477,7 @@ const Predictions = () => {
                     <div className={`h-full rounded-full ${getConfBarColor(p.confidence)}`} style={{ width: `${p.confidence}%` }} />
                   </div>
                 </div>
-              ))}
+              )})}
             </div>
           </>
         )}

@@ -1,15 +1,23 @@
 import { useMemo } from "react";
 import DashboardLayout from "@/components/dashboard/DashboardLayout";
 import { usePredictionsData } from "@/hooks/usePredictionsData";
+import { usePredictionsWithOdds } from "@/hooks/useOddsData";
 import { Loader2 } from "lucide-react";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, ResponsiveContainer, PieChart, Pie, Cell, Tooltip as RechartsTooltip } from "recharts";
 import { CHART_COLORS, CHART_TOOLTIP_STYLE, CHART_TICK } from "@/lib/chartTheme";
 import { getMarketLabel, getPredictionPriority, isUpcomingPrediction, rankPredictions, uniquePredictionsByFixture } from "@/lib/predictionInsights";
 
 const Analytics = () => {
-  const { data: predictions = [], isLoading } = usePredictionsData();
+  const { data: rawPredictions = [], isLoading } = usePredictionsData();
+  const { data: predictions = [] } = usePredictionsWithOdds(rawPredictions);
   const rankedPredictions = useMemo(
     () => uniquePredictionsByFixture(rankPredictions(predictions.filter((prediction) => isUpcomingPrediction(prediction)))),
+    [predictions]
+  );
+  const settledPredictions = useMemo(
+    () => uniquePredictionsByFixture(
+      predictions.filter((prediction) => prediction.status === "finished")
+    ),
     [predictions]
   );
 
@@ -84,12 +92,36 @@ const Analytics = () => {
     }));
   }, [rankedPredictions]);
 
+  const settledStats = useMemo(() => {
+    const resultWins = settledPredictions.filter((prediction) => {
+      const actualResult = prediction.homeScore > prediction.awayScore
+        ? "Home Win"
+        : prediction.homeScore < prediction.awayScore
+        ? "Away Win"
+        : "Draw";
+      return actualResult === prediction.predictedResult;
+    }).length;
+    const bttsWins = settledPredictions.filter((prediction) => {
+      const actual = prediction.homeScore > 0 && prediction.awayScore > 0 ? "Yes" : "No";
+      return actual === prediction.bttsResult;
+    }).length;
+    const over25Wins = settledPredictions.filter((prediction) => (prediction.homeScore + prediction.awayScore >= 3) === (prediction.over25Prob >= 50)).length;
+    const exactScoreHits = settledPredictions.filter((prediction) => `${prediction.homeScore}-${prediction.awayScore}` === prediction.predictedScore).length;
+
+    return {
+      resultWins,
+      bttsWins,
+      over25Wins,
+      exactScoreHits,
+    };
+  }, [settledPredictions]);
+
   return (
     <DashboardLayout>
       <div className="space-y-6">
         <div>
           <h1 className="text-xl font-bold text-foreground">Analytics Overview</h1>
-          <p className="text-xs text-muted-foreground mt-1">Based on current predictions data</p>
+          <p className="text-xs text-muted-foreground mt-1">Current market mix plus settled-result accountability</p>
         </div>
 
         {isLoading ? (
@@ -150,6 +182,77 @@ const Analytics = () => {
                 ) : (
                   <p className="text-sm text-muted-foreground text-center py-8">No data available</p>
                 )}
+              </div>
+            </div>
+
+            <div className="rounded-xl border border-border bg-card p-4">
+              <div className="flex items-center justify-between gap-3">
+                <div>
+                  <h3 className="text-sm font-semibold text-foreground">Settled Performance</h3>
+                  <p className="mt-1 text-xs text-muted-foreground">Completed fixtures tracked in the current prediction feed.</p>
+                </div>
+                <div className="text-xs text-muted-foreground">{settledPredictions.length} settled matches</div>
+              </div>
+
+              <div className="mt-4 grid gap-3 sm:grid-cols-4">
+                {[
+                  { label: "1X2 Hit Rate", value: settledPredictions.length ? `${Math.round((settledStats.resultWins / settledPredictions.length) * 100)}%` : "—" },
+                  { label: "BTTS Hit Rate", value: settledPredictions.length ? `${Math.round((settledStats.bttsWins / settledPredictions.length) * 100)}%` : "—" },
+                  { label: "O2.5 Hit Rate", value: settledPredictions.length ? `${Math.round((settledStats.over25Wins / settledPredictions.length) * 100)}%` : "—" },
+                  { label: "Exact Score Hits", value: settledStats.exactScoreHits },
+                ].map((item) => (
+                  <div key={item.label} className="rounded-lg border border-border/60 bg-background/60 p-3">
+                    <div className="text-[10px] text-muted-foreground">{item.label}</div>
+                    <div className="mt-1 text-lg font-mono font-bold text-foreground">{item.value}</div>
+                  </div>
+                ))}
+              </div>
+
+              <div className="mt-4 overflow-x-auto">
+                <table className="w-full text-xs">
+                  <thead>
+                    <tr className="border-b border-border/40 text-muted-foreground">
+                      <th className="px-2 py-2 text-left font-medium">Match</th>
+                      <th className="px-2 py-2 text-center font-medium">Final</th>
+                      <th className="px-2 py-2 text-center font-medium">1X2</th>
+                      <th className="px-2 py-2 text-center font-medium">BTTS</th>
+                      <th className="px-2 py-2 text-center font-medium">O2.5</th>
+                      <th className="px-2 py-2 text-center font-medium">Score</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {settledPredictions.slice(0, 10).map((prediction) => {
+                      const actualResult = prediction.homeScore > prediction.awayScore
+                        ? "Home Win"
+                        : prediction.homeScore < prediction.awayScore
+                        ? "Away Win"
+                        : "Draw";
+                      const actualBtts = prediction.homeScore > 0 && prediction.awayScore > 0 ? "Yes" : "No";
+                      const actualOver25 = prediction.homeScore + prediction.awayScore >= 3;
+                      const predictedOver25 = prediction.over25Prob >= 50;
+                      const exactHit = `${prediction.homeScore}-${prediction.awayScore}` === prediction.predictedScore;
+
+                      return (
+                        <tr key={prediction.id} className="border-b border-border/20">
+                          <td className="px-2 py-2 text-foreground">{prediction.homeTeam} vs {prediction.awayTeam}</td>
+                          <td className="px-2 py-2 text-center font-mono text-foreground">{prediction.homeScore}-{prediction.awayScore}</td>
+                          <td className={`px-2 py-2 text-center ${actualResult === prediction.predictedResult ? "text-primary" : "text-destructive"}`}>
+                            {actualResult === prediction.predictedResult ? "Hit" : "Miss"}
+                          </td>
+                          <td className={`px-2 py-2 text-center ${actualBtts === prediction.bttsResult ? "text-primary" : "text-destructive"}`}>
+                            {actualBtts === prediction.bttsResult ? "Hit" : "Miss"}
+                          </td>
+                          <td className={`px-2 py-2 text-center ${actualOver25 === predictedOver25 ? "text-primary" : "text-destructive"}`}>
+                            {actualOver25 === predictedOver25 ? "Hit" : "Miss"}
+                          </td>
+                          <td className={`px-2 py-2 text-center ${exactHit ? "text-primary" : "text-muted-foreground"}`}>
+                            {exactHit ? "Hit" : prediction.predictedScore}
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
               </div>
             </div>
 

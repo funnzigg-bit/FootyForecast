@@ -18,6 +18,26 @@ export interface CorrectScorePrediction {
   probability: number;
 }
 
+export interface OddsSelectionInsight {
+  averageOdds: number | null;
+  bestOdds: number | null;
+  bestBookmaker?: string;
+  marketProbability: number | null;
+  valueEdge: number | null;
+}
+
+export interface MatchOddsInsight {
+  eventId?: string;
+  commenceTime?: string;
+  home: OddsSelectionInsight;
+  draw: OddsSelectionInsight;
+  away: OddsSelectionInsight;
+  over25?: OddsSelectionInsight | null;
+  over35?: OddsSelectionInsight | null;
+  predictedSelection: "home" | "draw" | "away";
+  predictedValueEdge: number | null;
+}
+
 export interface MatchPrediction {
   id: string;
   fixtureId?: number | string;
@@ -58,6 +78,7 @@ export interface MatchPrediction {
   minute?: number;
   status?: 'live' | 'scheduled' | 'finished' | 'halftime';
   isLive?: boolean;
+  odds?: MatchOddsInsight | null;
 }
 
 export interface GoalsMarketPrediction {

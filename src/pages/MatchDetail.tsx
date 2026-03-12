@@ -3,6 +3,7 @@ import { useParams, Link } from "react-router-dom";
 import DashboardLayout from "@/components/dashboard/DashboardLayout";
 import { useLiveMatches } from "@/hooks/useLiveMatches";
 import { usePredictionsData } from "@/hooks/usePredictionsData";
+import { usePredictionsWithOdds } from "@/hooks/useOddsData";
 import { Button } from "@/components/ui/button";
 import { ArrowLeft, Clock, Radio, Calendar } from "lucide-react";
 import TeamBadge from "@/components/TeamBadge";
@@ -134,7 +135,8 @@ function normalizeLiveWinProbabilities(
 const MatchDetail = () => {
   const { id } = useParams<{ id: string }>();
   const { data: liveMatches = [] } = useLiveMatches(15000);
-  const { data: predictions = [] } = usePredictionsData();
+  const { data: rawPredictions = [] } = usePredictionsData();
+  const { data: predictions = [] } = usePredictionsWithOdds(rawPredictions);
 
   // Find match in live matches or predictions
   const liveMatch = liveMatches.find(m => m.id === id);
@@ -284,6 +286,47 @@ const MatchDetail = () => {
                   <div className="text-xs font-mono font-bold text-foreground">{prediction.over25Prob}%</div>
                 </div>
               </div>
+
+              {prediction.odds && (
+                <div className="mt-4 grid gap-2 rounded-lg border border-border/50 bg-background/60 p-3 sm:grid-cols-4">
+                  <div>
+                    <div className="text-[10px] text-muted-foreground">Average price</div>
+                    <div className="text-xs font-mono font-bold text-foreground">
+                      {prediction.odds.predictedSelection === "home"
+                        ? prediction.odds.home.averageOdds?.toFixed(2) ?? "—"
+                        : prediction.odds.predictedSelection === "away"
+                        ? prediction.odds.away.averageOdds?.toFixed(2) ?? "—"
+                        : prediction.odds.draw.averageOdds?.toFixed(2) ?? "—"}
+                    </div>
+                  </div>
+                  <div>
+                    <div className="text-[10px] text-muted-foreground">Best price</div>
+                    <div className="text-xs font-mono font-bold text-foreground">
+                      {prediction.odds.predictedSelection === "home"
+                        ? prediction.odds.home.bestOdds?.toFixed(2) ?? "—"
+                        : prediction.odds.predictedSelection === "away"
+                        ? prediction.odds.away.bestOdds?.toFixed(2) ?? "—"
+                        : prediction.odds.draw.bestOdds?.toFixed(2) ?? "—"}
+                    </div>
+                  </div>
+                  <div>
+                    <div className="text-[10px] text-muted-foreground">Market probability</div>
+                    <div className="text-xs font-mono font-bold text-foreground">
+                      {prediction.odds.predictedSelection === "home"
+                        ? prediction.odds.home.marketProbability?.toFixed(1)
+                        : prediction.odds.predictedSelection === "away"
+                        ? prediction.odds.away.marketProbability?.toFixed(1)
+                        : prediction.odds.draw.marketProbability?.toFixed(1)}%
+                    </div>
+                  </div>
+                  <div>
+                    <div className="text-[10px] text-muted-foreground">Model edge</div>
+                    <div className={`text-xs font-mono font-bold ${(prediction.odds.predictedValueEdge ?? 0) >= 0 ? "text-primary" : "text-destructive"}`}>
+                      {(prediction.odds.predictedValueEdge ?? 0) >= 0 ? "+" : ""}{prediction.odds.predictedValueEdge?.toFixed(1) ?? "0.0"}%
+                    </div>
+                  </div>
+                </div>
+              )}
 
               {prediction.reasoning && (
                 <p className="mt-3 text-xs text-muted-foreground italic">{prediction.reasoning}</p>

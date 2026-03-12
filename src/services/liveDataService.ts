@@ -43,7 +43,7 @@ export interface OddsEvent {
     title: string;
     markets: {
       key: string;
-      outcomes: { name: string; price: number }[];
+      outcomes: { name: string; price: number; point?: number }[];
     }[];
   }[];
 }

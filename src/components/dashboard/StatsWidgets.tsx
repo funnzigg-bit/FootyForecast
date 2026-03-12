@@ -26,10 +26,10 @@ const StatsWidgets = ({ stats }: { stats: StatsData }) => {
     },
     {
       icon: BarChart3,
-      label: "Tracked Fixtures",
+      label: "Alerts Logged",
       value: stats.alertsToday || "–",
       tone: "default",
-      detail: "Total fixtures currently available in the feed.",
+      detail: "Recent in-app alerts generated from live signals and market edges.",
     },
     {
       icon: Target,
