@@ -8,6 +8,7 @@ import { Target, BarChart3, TrendingUp, Zap, Crown, Loader2, Calendar } from "lu
 import { MatchPrediction, getConfidenceLabel } from "@/services/footballPredictionEngine";
 import TeamBadge from "@/components/TeamBadge";
 import { getMarketLabel, getPredictionAngle, getPredictionPriority, isPredictionToday, isUpcomingPrediction, rankPredictions, sortPredictionsByKickoff, uniquePredictionsByFixture } from "@/lib/predictionInsights";
+import { formatDecimalOddsAsFractional } from "@/lib/oddsInsights";
 
 const formatMatchDate = (dateStr?: string) => {
   if (!dateStr) return '';
@@ -62,10 +63,10 @@ const PickCard = ({ p }: { p: MatchPrediction }) => (
           <span className="text-muted-foreground">Market</span>
           <span className="font-mono font-bold text-foreground">
             {p.odds.predictedSelection === "home"
-              ? p.odds.home.averageOdds?.toFixed(2) ?? "—"
+              ? formatDecimalOddsAsFractional(p.odds.home.averageOdds)
               : p.odds.predictedSelection === "away"
-              ? p.odds.away.averageOdds?.toFixed(2) ?? "—"
-              : p.odds.draw.averageOdds?.toFixed(2) ?? "—"}
+              ? formatDecimalOddsAsFractional(p.odds.away.averageOdds)
+              : formatDecimalOddsAsFractional(p.odds.draw.averageOdds)}
           </span>
         </div>
         <div className="mt-1 flex items-center justify-between">
@@ -241,10 +242,10 @@ const DailyPicks = () => {
                         <span className="text-muted-foreground">{settings.oddsDisplay === "best" ? "Best price" : "Average price"}</span>
                         <div className="font-mono font-bold text-foreground">
                           {pickOfDay.odds.predictedSelection === "home"
-                            ? (settings.oddsDisplay === "best" ? pickOfDay.odds.home.bestOdds : pickOfDay.odds.home.averageOdds)?.toFixed(2) ?? "—"
+                            ? formatDecimalOddsAsFractional(settings.oddsDisplay === "best" ? pickOfDay.odds.home.bestOdds : pickOfDay.odds.home.averageOdds)
                             : pickOfDay.odds.predictedSelection === "away"
-                            ? (settings.oddsDisplay === "best" ? pickOfDay.odds.away.bestOdds : pickOfDay.odds.away.averageOdds)?.toFixed(2) ?? "—"
-                            : (settings.oddsDisplay === "best" ? pickOfDay.odds.draw.bestOdds : pickOfDay.odds.draw.averageOdds)?.toFixed(2) ?? "—"}
+                            ? formatDecimalOddsAsFractional(settings.oddsDisplay === "best" ? pickOfDay.odds.away.bestOdds : pickOfDay.odds.away.averageOdds)
+                            : formatDecimalOddsAsFractional(settings.oddsDisplay === "best" ? pickOfDay.odds.draw.bestOdds : pickOfDay.odds.draw.averageOdds)}
                         </div>
                       </div>
                       <div>

@@ -9,6 +9,7 @@ import { ArrowLeft, Clock, Radio, Calendar } from "lucide-react";
 import TeamBadge from "@/components/TeamBadge";
 import { LiveIncident } from "@/services/liveDataService";
 import { MatchPrediction } from "@/services/footballPredictionEngine";
+import { formatDecimalOddsAsFractional } from "@/lib/oddsInsights";
 
 const StatBar = ({ label, homeValue, awayValue, homeLabel, awayLabel, highlight }: {
   label: string; homeValue: number; awayValue: number;
@@ -293,20 +294,20 @@ const MatchDetail = () => {
                     <div className="text-[10px] text-muted-foreground">Average price</div>
                     <div className="text-xs font-mono font-bold text-foreground">
                       {prediction.odds.predictedSelection === "home"
-                        ? prediction.odds.home.averageOdds?.toFixed(2) ?? "—"
+                        ? formatDecimalOddsAsFractional(prediction.odds.home.averageOdds)
                         : prediction.odds.predictedSelection === "away"
-                        ? prediction.odds.away.averageOdds?.toFixed(2) ?? "—"
-                        : prediction.odds.draw.averageOdds?.toFixed(2) ?? "—"}
+                        ? formatDecimalOddsAsFractional(prediction.odds.away.averageOdds)
+                        : formatDecimalOddsAsFractional(prediction.odds.draw.averageOdds)}
                     </div>
                   </div>
                   <div>
                     <div className="text-[10px] text-muted-foreground">Best price</div>
                     <div className="text-xs font-mono font-bold text-foreground">
                       {prediction.odds.predictedSelection === "home"
-                        ? prediction.odds.home.bestOdds?.toFixed(2) ?? "—"
+                        ? formatDecimalOddsAsFractional(prediction.odds.home.bestOdds)
                         : prediction.odds.predictedSelection === "away"
-                        ? prediction.odds.away.bestOdds?.toFixed(2) ?? "—"
-                        : prediction.odds.draw.bestOdds?.toFixed(2) ?? "—"}
+                        ? formatDecimalOddsAsFractional(prediction.odds.away.bestOdds)
+                        : formatDecimalOddsAsFractional(prediction.odds.draw.bestOdds)}
                     </div>
                   </div>
                   <div>

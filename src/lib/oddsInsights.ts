@@ -240,3 +240,28 @@ export function enrichPredictionsWithOdds(predictions: MatchPrediction[], oddsEv
     };
   });
 }
+
+function gcd(left: number, right: number): number {
+  let a = Math.abs(left);
+  let b = Math.abs(right);
+
+  while (b) {
+    [a, b] = [b, a % b];
+  }
+
+  return a || 1;
+}
+
+export function formatDecimalOddsAsFractional(decimalOdds: number | null | undefined) {
+  if (decimalOdds == null || !Number.isFinite(decimalOdds) || decimalOdds <= 1) {
+    return "—";
+  }
+
+  const fractional = decimalOdds - 1;
+  const precision = 100;
+  const numerator = Math.round(fractional * precision);
+  const denominator = precision;
+  const divisor = gcd(numerator, denominator);
+
+  return `${numerator / divisor}/${denominator / divisor}`;
+}

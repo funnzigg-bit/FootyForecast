@@ -10,6 +10,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Search, Filter, Loader2, WifiOff } from "lucide-react";
 import TeamBadge from "@/components/TeamBadge";
 import { getFixtureSortTimestamp } from "@/lib/predictionInsights";
+import { formatDecimalOddsAsFractional } from "@/lib/oddsInsights";
 
 const LiveMatches = () => {
   const navigate = useNavigate();
@@ -181,7 +182,7 @@ const LiveMatches = () => {
                         <td className="px-4 py-3 font-medium text-foreground"><TeamBadge name={m.awayTeam} logo={m.awayLogo} /></td>
                         <td className="px-4 py-3 text-center">{getStatusBadge(m.status, m.minute, m.matchDate)}</td>
                         <td className="px-4 py-3 text-center text-[10px] text-muted-foreground">
-                          {market ? market.outcomes.map((outcome) => Number(outcome.price).toFixed(2)).join(" / ") : "—"}
+                          {market ? market.outcomes.map((outcome) => formatDecimalOddsAsFractional(Number(outcome.price))).join(" / ") : "—"}
                         </td>
                       </tr>
                     )})}

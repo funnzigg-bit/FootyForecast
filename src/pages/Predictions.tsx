@@ -11,6 +11,7 @@ import { Search, Filter, ArrowUpDown, Loader2, Calendar, Star, TrendingUp, Clock
 import TeamBadge from "@/components/TeamBadge";
 import { getConfidenceLabel, MatchPrediction } from "@/services/footballPredictionEngine";
 import { getMarketLabel, getPredictionPriority, getStrongestWinProbability, PredictionSortMetric, rankPredictions, sortPredictionsByMetric, uniquePredictionsByFixture } from "@/lib/predictionInsights";
+import { formatDecimalOddsAsFractional } from "@/lib/oddsInsights";
 
 const getConfBadge = (level: string) => {
   const label = getConfidenceLabel(level);
@@ -93,7 +94,7 @@ const WinProbBar = ({ home, draw, away, homeTeam, awayTeam }: { home: number; dr
 
 const getDisplayedOdds = (mode: "average" | "best", averageOdds: number | null, bestOdds: number | null) => {
   const value = mode === "best" ? bestOdds : averageOdds;
-  return value == null ? "—" : value.toFixed(2);
+  return formatDecimalOddsAsFractional(value);
 };
 
 const getPredictedMarketLine = (prediction: MatchPrediction, mode: "average" | "best") => {
