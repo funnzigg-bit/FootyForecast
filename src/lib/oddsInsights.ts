@@ -257,11 +257,28 @@ export function formatDecimalOddsAsFractional(decimalOdds: number | null | undef
     return "—";
   }
 
-  const fractional = decimalOdds - 1;
-  const precision = 100;
-  const numerator = Math.round(fractional * precision);
-  const denominator = precision;
-  const divisor = gcd(numerator, denominator);
+  if (Math.abs(decimalOdds - 2) <= 0.06) {
+    return "Evs";
+  }
 
-  return `${numerator / divisor}/${denominator / divisor}`;
+  const fractional = decimalOdds - 1;
+  const denominators = [1, 2, 3, 4, 5, 6, 8, 10, 11, 12, 14, 16, 20];
+  let bestNumerator = 1;
+  let bestDenominator = 1;
+  let bestDelta = Number.POSITIVE_INFINITY;
+
+  for (const denominator of denominators) {
+    const numerator = Math.max(1, Math.round(fractional * denominator));
+    const approximation = numerator / denominator;
+    const delta = Math.abs(approximation - fractional);
+
+    if (delta < bestDelta) {
+      bestDelta = delta;
+      bestNumerator = numerator;
+      bestDenominator = denominator;
+    }
+  }
+
+  const divisor = gcd(bestNumerator, bestDenominator);
+  return `${bestNumerator / divisor}/${bestDenominator / divisor}`;
 }
