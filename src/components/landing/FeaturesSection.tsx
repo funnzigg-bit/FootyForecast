@@ -17,7 +17,9 @@ const ProbabilityBar = () => {
       </div>
       <Progress
         value={isInView ? 82 : 0}
-        className="h-2 bg-muted [&>div]:bg-gradient-to-r [&>div]:from-primary [&>div]:to-accent [&>div]:transition-all [&>div]:duration-[2s]"
+        className="h-2 bg-muted"
+        indicatorClassName="bg-gradient-to-r from-primary to-accent"
+        indicatorStyle={{ transitionDuration: "2000ms" }}
       />
       <div className="flex gap-1">
         {["xG ↑", "Form", "Home edge"].map((s) => (
