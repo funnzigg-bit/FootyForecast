@@ -87,10 +87,10 @@ const HeroSection = () => {
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.5, delay: 0.1 }}
-            className="max-w-6xl text-4xl font-black tracking-[-0.05em] text-foreground sm:text-5xl md:text-6xl lg:text-[7.25rem] lg:leading-[0.92]"
+            className="max-w-6xl text-4xl font-black tracking-[-0.04em] text-foreground sm:text-5xl md:text-6xl lg:text-[5.8rem] lg:leading-[0.94]"
           >
             <span className="block text-white">Predict the Weekend</span>
-            <span className="mt-2 block text-primary drop-shadow-[0_0_22px_rgba(132,204,22,0.55)] sm:mt-3">
+            <span className="mt-2 block text-primary drop-shadow-[0_0_16px_rgba(132,204,22,0.4)] sm:mt-3">
               Before It Happens
             </span>
           </motion.h1>
