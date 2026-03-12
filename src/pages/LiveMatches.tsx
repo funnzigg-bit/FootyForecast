@@ -8,6 +8,7 @@ import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Search, Filter, Loader2, WifiOff } from "lucide-react";
 import TeamBadge from "@/components/TeamBadge";
+import { getFixtureSortTimestamp } from "@/lib/predictionInsights";
 
 const LiveMatches = () => {
   const navigate = useNavigate();
@@ -71,9 +72,10 @@ const LiveMatches = () => {
     return true;
   });
 
-  // Sort: live first, then scheduled, then finished
-  const statusOrder: Record<string, number> = { live: 0, halftime: 1, scheduled: 2, finished: 3 };
-  filtered.sort((a, b) => (statusOrder[a.status] ?? 9) - (statusOrder[b.status] ?? 9));
+  filtered.sort((a, b) => (
+    getFixtureSortTimestamp({ matchDate: a.matchDate, status: a.status }) -
+    getFixtureSortTimestamp({ matchDate: b.matchDate, status: b.status })
+  ));
 
   const getStatusBadge = (status: string, minute: number, matchDate?: string) => {
     if (status === 'live') return (

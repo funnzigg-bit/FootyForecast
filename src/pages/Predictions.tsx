@@ -8,7 +8,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Search, Filter, ArrowUpDown, Loader2, Calendar, Star, TrendingUp, Clock3 } from "lucide-react";
 import TeamBadge from "@/components/TeamBadge";
 import { getConfidenceLabel } from "@/services/footballPredictionEngine";
-import { getMarketLabel, getPredictionPriority, rankPredictions, uniquePredictionsByFixture } from "@/lib/predictionInsights";
+import { getMarketLabel, getPredictionPriority, rankPredictions, sortPredictionsByKickoff, uniquePredictionsByFixture } from "@/lib/predictionInsights";
 
 const getConfBadge = (level: string) => {
   const label = getConfidenceLabel(level);
@@ -47,12 +47,6 @@ const formatMatchDate = (dateStr?: string) => {
   if (isToday) return `Today ${time}`;
   if (isTomorrow) return `Tomorrow ${time}`;
   return `${d.toLocaleDateString([], { weekday: 'short', day: 'numeric', month: 'short' })} ${time}`;
-};
-
-const getMatchTimestamp = (dateStr?: string) => {
-  if (!dateStr) return Number.POSITIVE_INFINITY;
-  const timestamp = new Date(dateStr).getTime();
-  return Number.isNaN(timestamp) ? Number.POSITIVE_INFINITY : timestamp;
 };
 
 const getStatusBadge = (status?: string, minute?: number) => {
@@ -118,17 +112,21 @@ const Predictions = () => {
     return true;
   });
 
-  filtered.sort((a, b) => {
-    const cmp =
-      sortKey === 'date'
-        ? getMatchTimestamp(a.matchDate) - getMatchTimestamp(b.matchDate)
-        : sortKey === 'confidence'
-        ? b.confidence - a.confidence
-        : sortKey === 'priority'
-        ? getPredictionPriority(b) - getPredictionPriority(a)
-        : a.league.localeCompare(b.league);
-    return sortAsc ? -cmp : cmp;
-  });
+  const sorted = (
+    sortKey === "date"
+      ? sortPredictionsByKickoff(filtered)
+      : [...filtered].sort((a, b) => {
+          const cmp =
+            sortKey === 'confidence'
+              ? b.confidence - a.confidence
+              : sortKey === 'priority'
+              ? getPredictionPriority(b) - getPredictionPriority(a)
+              : a.league.localeCompare(b.league);
+          return cmp;
+        })
+  );
+
+  if (sortAsc) sorted.reverse();
 
   const handleSort = (key: typeof sortKey) => {
     if (sortKey === key) setSortAsc(!sortAsc);
@@ -239,7 +237,7 @@ const Predictions = () => {
                     </tr>
                   </thead>
                   <tbody>
-                    {filtered.map(p => (
+                    {sorted.map(p => (
                       <tr key={p.id} className="border-b border-border/20 transition-colors hover:bg-secondary/20">
                         <td className="px-4 py-3 text-muted-foreground truncate max-w-[120px]">{p.league}</td>
                         <td className="px-4 py-3">
@@ -292,17 +290,17 @@ const Predictions = () => {
                   </tbody>
                 </table>
               </div>
-              {filtered.length === 0 && (
+              {sorted.length === 0 && (
                 <div className="p-8 text-center text-sm text-muted-foreground">No predictions match your filters.</div>
               )}
             </div>
 
             {/* Mobile cards */}
             <div className="md:hidden space-y-3">
-              {filtered.length === 0 && (
+              {sorted.length === 0 && (
                 <div className="rounded-xl border border-border bg-card p-8 text-center text-sm text-muted-foreground">No predictions match your filters.</div>
               )}
-              {filtered.map(p => (
+              {sorted.map(p => (
                 <div key={p.id} className="rounded-xl border border-border bg-card p-4 space-y-3">
                     <div className="flex items-center justify-between">
                       <span className="text-[10px] text-muted-foreground">{p.league}</span>

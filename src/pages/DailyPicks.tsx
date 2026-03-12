@@ -5,7 +5,7 @@ import { Badge } from "@/components/ui/badge";
 import { Target, BarChart3, TrendingUp, Zap, Crown, Loader2, Calendar } from "lucide-react";
 import { MatchPrediction, getConfidenceLabel } from "@/services/footballPredictionEngine";
 import TeamBadge from "@/components/TeamBadge";
-import { getMarketLabel, getPredictionAngle, getPredictionPriority, getScorelineLean, isPredictionToday, isUpcomingPrediction, rankPredictions, uniquePredictionsByFixture } from "@/lib/predictionInsights";
+import { getMarketLabel, getPredictionAngle, getPredictionPriority, isPredictionToday, isUpcomingPrediction, rankPredictions, sortPredictionsByKickoff, uniquePredictionsByFixture } from "@/lib/predictionInsights";
 
 const formatMatchDate = (dateStr?: string) => {
   if (!dateStr) return '';
@@ -54,10 +54,6 @@ const PickCard = ({ p }: { p: MatchPrediction }) => (
       <span className="text-muted-foreground">Best angle</span>
       <span className="font-medium text-foreground">{getMarketLabel(p)}</span>
     </div>
-    <div className="mt-1 flex items-center justify-between text-[10px] text-muted-foreground">
-      <span>Score lean</span>
-      <span className="font-mono text-foreground">{getScorelineLean(p)}</span>
-    </div>
     {p.totalGoalsExpected != null && (
       <div className="mt-1 flex items-center justify-between text-[10px] text-muted-foreground">
         <span>Expected goals</span>
@@ -79,7 +75,9 @@ const DailyPicks = () => {
     );
     const todayPredictions = source.filter((prediction) => isPredictionToday(prediction));
     const ranked = rankPredictions(todayPredictions.length > 0 ? todayPredictions : source);
-    const distinct = (list: MatchPrediction[]) => uniquePredictionsByFixture(rankPredictions(list));
+    const distinct = (list: MatchPrediction[]) => sortPredictionsByKickoff(
+      uniquePredictionsByFixture(rankPredictions(list))
+    );
 
     return {
       pickOfDay: ranked[0] || null,

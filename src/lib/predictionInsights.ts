@@ -66,6 +66,26 @@ export function getScorelineLean(prediction: MatchPrediction) {
   return scores.length > 0 ? scores.join(" / ") : prediction.predictedScore;
 }
 
+export function getFixtureSortTimestamp(
+  prediction: Pick<MatchPrediction, "matchDate" | "status">,
+  now = new Date(),
+) {
+  const matchDate = toDate(prediction.matchDate);
+
+  if (matchDate) return matchDate.getTime();
+  if (prediction.status === "live" || prediction.status === "halftime") {
+    return now.getTime() - 60 * 1000;
+  }
+
+  return Number.POSITIVE_INFINITY;
+}
+
+export function sortPredictionsByKickoff(predictions: MatchPrediction[], now = new Date()) {
+  return [...predictions].sort(
+    (a, b) => getFixtureSortTimestamp(a, now) - getFixtureSortTimestamp(b, now)
+  );
+}
+
 export function rankPredictions(predictions: MatchPrediction[]) {
   return [...predictions].sort((a, b) => getPredictionPriority(b) - getPredictionPriority(a));
 }
